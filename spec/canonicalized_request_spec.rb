@@ -1,38 +1,30 @@
 require 'rspec'
 require 'escher'
 
-describe 'Canonicalized request' do
+fixtures = %w(get-vanilla-query post-x-www-form-urlencoded)
 
-  it 'should calculate canonicalized form of simple get request' do
-
-    canonicalized_request = Escher.new.canonicalize 'GET', 'http://host.foo.com/', '', 'Mon, 09 Sep 2011 23:36:00 GMT', {}
-    expect(canonicalized_request).to eq(
-                                         'GET
-/
-
-date:Mon, 09 Sep 2011 23:36:00 GMT
-host:host.foo.com
-
-date;host
-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
-
+describe 'Escher' do
+  fixtures.each do |test|
+    it "should calculate canonicalized request for #{test}" do
+        body, date, headers, method, url = read_request(test)
+        headers_to_sign = headers.keys.map(&:downcase)
+        canonicalized_request = Escher.new.canonicalize method, url, body, date, headers, headers_to_sign
+        expect(canonicalized_request).to eq(fixture(test, 'creq'))
+    end
   end
+end
 
-  it 'should calculate canonicalized form of post request with body' do
+def fixture(test, extension)
+  open('spec/aws4_testsuite/'+test+'.'+extension).read
+end
 
-    canonicalized_request = Escher.new.canonicalize 'POST', 'http://host.foo.com/', 'foo=bar', 'Mon, 09 Sep 2011 23:36:00 GMT', {
-        'Content-Type' => 'application/x-www-form-urlencoded',
-    }, ['content-type']
-    expect(canonicalized_request).to eq(
-                                         'POST
-/
+def read_request(test)
+  lines = (fixture(test, 'req') + "\n").lines.map(&:chomp)
+  method, uri = lines[0].split ' '
+  headers = lines[1..-3].map { |header| k, v = header.split(':', 2); {k => v} }.reduce(&:merge)
+  url = 'http://'+ headers['Host'] + uri
 
-content-type:application/x-www-form-urlencoded
-date:Mon, 09 Sep 2011 23:36:00 GMT
-host:host.foo.com
-
-content-type;date;host
-3ba8907e7a252327488df390ed517c45b96dead033600219bdca7107d1d3f88a')
-
-  end
+  body = lines[-1]
+  date = headers['Date']
+  return body, date, headers, method, url
 end
