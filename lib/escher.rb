@@ -19,7 +19,7 @@ class Escher
     uri = URI.parse(url)
 
     ([
-        method,
+        method.upcase,
         canonicalize_path(uri),
         canonicalize_query(query),
     ] + canonicalize_headers(date, uri, headers) + [
