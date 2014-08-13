@@ -43,7 +43,7 @@ class Escher
 
   def get_auth_header(header_name, vendor_prefix, algo, api_key_id, api_secret, date, credential_scope, method, url, body, headers, signed_headers)
     canonicalized_request = canonicalize method, url, body, date, headers, signed_headers
-    string_to_sign = get_string_to_sign 'us-east-1/host/aws4_request', canonicalized_request, date, vendor_prefix, algo
+    string_to_sign = get_string_to_sign credential_scope, canonicalized_request, date, vendor_prefix, algo
     signing_key = calculate_signing_key(api_secret, date, vendor_prefix, credential_scope)
 
     signature = Digest::HMAC.hexdigest(string_to_sign, signing_key, Digest::SHA256)
