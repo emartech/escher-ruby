@@ -36,11 +36,20 @@ fixtures = %w(
 describe 'Escher' do
   fixtures.each do |test|
     it "should calculate canonicalized request for #{test}" do
-        method, url, body, date, headers = read_request(test)
-        headers_to_sign = headers.map {|k| k[0].downcase }
-        canonicalized_request = Escher.new.canonicalize method, url, body, date, headers, headers_to_sign
-        check_canonicalized_request(canonicalized_request, test)
+      method, url, body, date, headers = read_request(test)
+      headers_to_sign = headers.map {|k| k[0].downcase }
+      canonicalized_request = Escher.new.canonicalize method, url, body, date, headers, headers_to_sign
+      check_canonicalized_request(canonicalized_request, test)
     end
+  end
+
+  fixtures.each do |test|
+    it "should calculate string to sign for #{test}" do
+      method, url, body, date, headers = read_request(test)
+      headers_to_sign = headers.map {|k| k[0].downcase }
+      canonicalized_request = Escher.new.canonicalize method, url, body, date, headers, headers_to_sign
+      string_to_sign = Escher.new.get_string_to_sign 'us-east-1/host/aws4_request', canonicalized_request, date, 'SHA256', 'AWS4'
+      expect(string_to_sign).to eq(fixture(test, 'sts'))    end
   end
 end
 

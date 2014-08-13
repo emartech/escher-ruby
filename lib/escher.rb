@@ -1,5 +1,5 @@
+require 'time'
 require 'uri'
-require 'pp'
 require 'digest'
 
 class Escher
@@ -19,6 +19,18 @@ class Escher
         (headers_to_sign | %w(date host)).join(';'),
         request_body_hash(body)
     ]).join "\n"
+  end
+
+  # TODO: extract algo creation
+  def get_string_to_sign(credential_scope, canonicalized_request, date, algo, prefix)
+    date = Time.parse(date).utc.strftime("%Y%m%dT%H%M%SZ")
+    lines = [
+        prefix + '-HMAC-' + algo,
+        date,
+        date[0..7] + '/' + credential_scope,
+        Digest::SHA256.new.hexdigest(canonicalized_request)
+    ]
+    lines.join "\n"
   end
 
   def canonicalize_path(uri)
