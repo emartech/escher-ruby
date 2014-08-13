@@ -2,12 +2,24 @@ require 'rspec'
 require 'escher'
 
 fixtures = %w(
-  get-vanilla-query
   post-x-www-form-urlencoded
   get-header-key-duplicate
   get-header-value-order
   get-header-value-trim
   get-relative get-relative-relative
+  get-slash
+  get-slash-dot-slash
+  get-slash-pointless-dot
+  get-slashes
+  get-space
+  get-unreserved
+  get-utf8
+  get-vanilla
+  get-vanilla-empty-query-key
+  get-vanilla-query
+  get-vanilla-query-order-key
+  get-vanilla-query-order-key-case
+  get-vanilla-query-order-value
 )
 
 describe 'Escher' do

@@ -10,8 +10,8 @@ class Escher
 
     ([
         method,
-        path(uri),
-        query(uri),
+        canonicalized_path(uri),
+        canonicalized_query(uri),
     ] + canonicalized_headers(date, uri, headers) + [
         '',
         (headers_to_sign | %w(date host)).join(';'),
@@ -19,13 +19,13 @@ class Escher
     ]).join "\n"
   end
 
-  def path(uri)
+  def canonicalized_path(uri)
     path = uri.path
     while path.gsub!(%r{([^/]+)/\.\./?}) { |match|
       $1 == '..' ? match : ''
     } do
     end
-      path = path.gsub(%r{/\./}, '/').sub(%r{/\.\z}, '/')
+      path = path.gsub(%r{/\./}, '/').sub(%r{/\.\z}, '/').gsub(/\/+/, '/')
     end
 
     def canonicalized_headers(date, uri, raw_headers)
@@ -47,7 +47,16 @@ class Escher
       Digest::SHA256.new.hexdigest body
     end
 
-    def query(uri)
-      (uri.query ? uri.query : '')
+    def canonicalized_query(uri)
+      query = uri.query ? uri.query : ''
+      query.split('&', -1)
+      .map { |pair| k, v = pair.split('=', -1)
+      if k.include? ' ' then
+        [k.str(/\S+/), '']
+      else
+        [k, v]
+      end }
+      .map { |pair| k, v = pair; URI::encode(k) + '=' + URI::encode(v) }
+      .sort.join '&'
     end
   end
