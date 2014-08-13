@@ -5,8 +5,16 @@ require 'digest'
 class Escher
   VERSION = '0.0.1'
 
-  def canonicalize(method, url, body, date, headers, headers_to_sign = [], algo = 'SHA256')
+  def get_auth_header(header_name, vendor_prefix, algo, api_key_id, api_secret, date, credential_scope, method, url, body, headers, signed_headers)
+    canonicalized_request = canonicalize method, url, body, date, headers, signed_headers
+    string_to_sign = get_string_to_sign credential_scope, canonicalized_request, date, vendor_prefix, algo
+    signing_key = calculate_signing_key(api_secret, date, vendor_prefix, credential_scope, algo)
 
+    signature = Digest::HMAC.hexdigest(string_to_sign, signing_key, create_algo(algo))
+    "#{algo_id(vendor_prefix, algo)} Credential=#{api_key_id}/#{long_date(date)[0..7]}/#{credential_scope}, SignedHeaders=#{signed_headers.uniq.join ';'}, Signature=#{signature}"
+  end
+
+  def canonicalize(method, url, body, date, headers, headers_to_sign = [], algo = 'SHA256')
     url, query = url.split '?', 2 # URI#parse cannot parse unicode characters in query string TODO use Adressable
     uri = URI.parse(url)
 
@@ -50,15 +58,6 @@ class Escher
 
   def algo_id(prefix, algo)
     prefix + '-HMAC-' + algo
-  end
-
-  def get_auth_header(header_name, vendor_prefix, algo, api_key_id, api_secret, date, credential_scope, method, url, body, headers, signed_headers)
-    canonicalized_request = canonicalize method, url, body, date, headers, signed_headers
-    string_to_sign = get_string_to_sign credential_scope, canonicalized_request, date, vendor_prefix, algo
-    signing_key = calculate_signing_key(api_secret, date, vendor_prefix, credential_scope, algo)
-
-    signature = Digest::HMAC.hexdigest(string_to_sign, signing_key, create_algo(algo))
-    "#{algo_id(vendor_prefix, algo)} Credential=#{api_key_id}/#{long_date(date)[0..7]}/#{credential_scope}, SignedHeaders=#{signed_headers.uniq.join ';'}, Signature=#{signature}"
   end
 
   def calculate_signing_key(api_secret, date, vendor_prefix, credential_scope, algo)
