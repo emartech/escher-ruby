@@ -20,6 +20,8 @@ fixtures = %w(
   get-vanilla-query-order-key
   get-vanilla-query-order-key-case
   get-vanilla-query-order-value
+  get-vanilla-query-unreserved
+  get-vanilla-ut8-query
 )
 
 describe 'Escher' do
