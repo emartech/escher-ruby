@@ -44,7 +44,7 @@ describe 'Escher' do
     it "should calculate canonicalized request for #{test}" do
       method, url, body, date, headers = read_request(test)
       headers_to_sign = headers.map {|k| k[0].downcase }
-      canonicalized_request = Escher.canonicalize method, url, body, date, headers, headers_to_sign, 'SHA256', 'Authorization'
+      canonicalized_request = Escher.canonicalize method, url, body, date, headers, headers_to_sign, 'SHA256', 'Authorization', 'Date'
       check_canonicalized_request(canonicalized_request, test)
     end
   end
@@ -53,7 +53,7 @@ describe 'Escher' do
     it "should calculate string to sign for #{test}" do
       method, url, body, date, headers = read_request(test)
       headers_to_sign = headers.map {|k| k[0].downcase }
-      canonicalized_request = Escher.canonicalize method, url, body, date, headers, headers_to_sign, 'SHA256', 'Authorization'
+      canonicalized_request = Escher.canonicalize method, url, body, date, headers, headers_to_sign, 'SHA256', 'Authorization', 'Date'
       string_to_sign = Escher.get_string_to_sign 'us-east-1/host/aws4_request', canonicalized_request, date, 'AWS4', 'SHA256'
                                                      expect(string_to_sign).to eq(fixture(test, 'sts'))
     end

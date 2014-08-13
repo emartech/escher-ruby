@@ -19,7 +19,7 @@ module Escher
 
     api_secret = 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'
 
-    signature == generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, url, options[:vendor_prefix], options[:auth_header_name])
+    signature == generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, url, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
   end
 
   def self.get_header(header_name, headers)
@@ -39,12 +39,12 @@ module Escher
 
   def self.get_auth_header(client, method, url, body, headers, headers_to_sign, date = Time.now.utc.rfc2822, algo = 'SHA256', options = {})
     options = default_options.merge options
-    signature = generate_signature(algo, client[:api_secret], body, client[:credential_scope], date, headers, method, headers_to_sign, url, options[:vendor_prefix], options[:auth_header_name])
+    signature = generate_signature(algo, client[:api_secret], body, client[:credential_scope], date, headers, method, headers_to_sign, url, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
     "#{algo_id(options[:vendor_prefix], algo)} Credential=#{client[:api_key_id]}/#{long_date(date)[0..7]}/#{client[:credential_scope]}, SignedHeaders=#{headers_to_sign.uniq.join ';'}, Signature=#{signature}"
   end
 
-  def self.generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, url, vendor_prefix, auth_header_name)
-    canonicalized_request = canonicalize method, url, body, date, headers, signed_headers, algo, auth_header_name
+  def self.generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, url, vendor_prefix, auth_header_name, date_header_name)
+    canonicalized_request = canonicalize method, url, body, date, headers, signed_headers, algo, auth_header_name, date_header_name
     string_to_sign = get_string_to_sign credential_scope, canonicalized_request, date, vendor_prefix, algo
     signing_key = calculate_signing_key(api_secret, date, vendor_prefix, credential_scope, algo)
     signature = calculate_signature(algo, signing_key, string_to_sign)
@@ -54,7 +54,7 @@ module Escher
     Digest::HMAC.hexdigest(string_to_sign, signing_key, create_algo(algo))
   end
 
-  def self.canonicalize(method, url, body, date, headers, headers_to_sign, algo, auth_header_name)
+  def self.canonicalize(method, url, body, date, headers, headers_to_sign, algo, auth_header_name, date_header_name)
     url, query = url.split '?', 2 # URI#parse cannot parse unicode characters in query string TODO use Adressable
     uri = URI.parse(url)
 
@@ -62,7 +62,7 @@ module Escher
         method.upcase,
         canonicalize_path(uri),
         canonicalize_query(query),
-    ] + canonicalize_headers(date, uri, headers, auth_header_name) + [
+    ] + canonicalize_headers(date, uri, headers, auth_header_name, date_header_name) + [
         '',
         (headers_to_sign | %w(date host)).join(';'),
         request_body_hash(body, algo)
@@ -117,8 +117,8 @@ module Escher
       path = path.gsub(%r{/\./}, '/').sub(%r{/\.\z}, '/').gsub(/\/+/, '/')
     end
 
-    def self.canonicalize_headers(date, uri, raw_headers, auth_header_name)
-      collect_headers(raw_headers, auth_header_name).merge({'date' => [date], 'host' => [uri.host]}).map { |k, v| k + ':' + (v.sort_by { |x| x }).join(',').gsub(/\s+/, ' ').strip }
+    def self.canonicalize_headers(date, uri, raw_headers, auth_header_name, date_header_name)
+      collect_headers(raw_headers, auth_header_name).merge({date_header_name.downcase => [date], 'host' => [uri.host]}).map { |k, v| k + ':' + (v.sort_by { |x| x }).join(',').gsub(/\s+/, ' ').strip }
     end
 
     def self.collect_headers(raw_headers, auth_header_name)
