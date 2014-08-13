@@ -9,9 +9,13 @@ class Escher
     canonicalized_request = canonicalize method, url, body, date, headers, signed_headers
     string_to_sign = get_string_to_sign credential_scope, canonicalized_request, date, vendor_prefix, algo
     signing_key = calculate_signing_key(api_secret, date, vendor_prefix, credential_scope, algo)
+    signature = calculate_signature(algo, signing_key, string_to_sign)
 
-    signature = Digest::HMAC.hexdigest(string_to_sign, signing_key, create_algo(algo))
     "#{algo_id(vendor_prefix, algo)} Credential=#{api_key_id}/#{long_date(date)[0..7]}/#{credential_scope}, SignedHeaders=#{signed_headers.uniq.join ';'}, Signature=#{signature}"
+  end
+
+  def calculate_signature(algo, signing_key, string_to_sign)
+    Digest::HMAC.hexdigest(string_to_sign, signing_key, create_algo(algo))
   end
 
   def canonicalize(method, url, body, date, headers, headers_to_sign = [], algo = 'SHA256')
