@@ -22,7 +22,14 @@ fixtures = %w(
   get-vanilla-query-order-value
   get-vanilla-query-unreserved
   get-vanilla-ut8-query
+  post-header-key-case
+  post-header-key-sort
+  post-header-value-case
+  post-vanilla
+  post-vanilla-empty-query-value
+  post-vanilla-query
 )
+# missing test:   post-vanilla-query-nonunreserved
 
 describe 'Escher' do
   fixtures.each do |test|

@@ -58,7 +58,10 @@ class Escher
       else
         [k, v]
       end }
-      .map { |pair| k, v = pair; URI::encode(k) + '=' + URI::encode(v) }
+      .map { |pair|
+        k, v = pair;
+        URI::encode(k.gsub('+', ' ')) + '=' + URI::encode(v || '')
+      }
       .sort.join '&'
     end
   end
