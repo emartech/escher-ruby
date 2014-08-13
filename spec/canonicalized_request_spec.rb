@@ -9,7 +9,7 @@ describe 'Escher' do
         method, url, body, date, headers = read_request(test)
         headers_to_sign = headers.keys.map(&:downcase)
         canonicalized_request = Escher.new.canonicalize method, url, body, date, headers, headers_to_sign
-        expect(canonicalized_request).to eq(fixture(test, 'creq'))
+        check_canonicalized_request(canonicalized_request, test)
     end
   end
 end
@@ -27,4 +27,8 @@ def read_request(test)
   body = lines[-1]
   date = headers['Date']
   return method, url, body, date, headers
+end
+
+def check_canonicalized_request(canonicalized_request, test)
+  expect(canonicalized_request).to eq(fixture(test, 'creq'))
 end
