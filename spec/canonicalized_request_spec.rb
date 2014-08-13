@@ -48,8 +48,18 @@ describe 'Escher' do
       method, url, body, date, headers = read_request(test)
       headers_to_sign = headers.map {|k| k[0].downcase }
       canonicalized_request = Escher.new.canonicalize method, url, body, date, headers, headers_to_sign
-      string_to_sign = Escher.new.get_string_to_sign 'us-east-1/host/aws4_request', canonicalized_request, date, 'SHA256', 'AWS4'
-      expect(string_to_sign).to eq(fixture(test, 'sts'))    end
+      string_to_sign = Escher.new.get_string_to_sign 'us-east-1/host/aws4_request', canonicalized_request, date, 'AWS4', 'SHA256'
+                                                     expect(string_to_sign).to eq(fixture(test, 'sts'))
+    end
+  end
+
+  fixtures.each do |test|
+    it "should calculate auth header for #{test}" do
+      method, url, body, date, headers = read_request(test)
+      headers_to_sign = headers.map {|k| k[0].downcase }
+      auth_header = Escher.new.get_auth_header 'Authorization', 'AWS4', 'SHA256', 'AKIDEXAMPLE', 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', date, 'us-east-1/host/aws4_request', method, url, body, headers, headers_to_sign
+      expect(auth_header).to eq(fixture(test, 'authz'))
+    end
   end
 end
 

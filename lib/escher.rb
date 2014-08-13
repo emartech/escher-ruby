@@ -22,15 +22,40 @@ class Escher
   end
 
   # TODO: extract algo creation
-  def get_string_to_sign(credential_scope, canonicalized_request, date, algo, prefix)
-    date = Time.parse(date).utc.strftime("%Y%m%dT%H%M%SZ")
+  def get_string_to_sign(credential_scope, canonicalized_request, date, prefix, algo)
+    date = long_date(date)
     lines = [
-        prefix + '-HMAC-' + algo,
+        algo_id(prefix, algo),
         date,
         date[0..7] + '/' + credential_scope,
         Digest::SHA256.new.hexdigest(canonicalized_request)
     ]
     lines.join "\n"
+  end
+
+  def long_date(date)
+    Time.parse(date).utc.strftime("%Y%m%dT%H%M%SZ")
+  end
+
+  def algo_id(prefix, algo)
+    prefix + '-HMAC-' + algo
+  end
+
+  def get_auth_header(header_name, vendor_prefix, algo, api_key_id, api_secret, date, credential_scope, method, url, body, headers, signed_headers)
+    canonicalized_request = canonicalize method, url, body, date, headers, signed_headers
+    string_to_sign = get_string_to_sign 'us-east-1/host/aws4_request', canonicalized_request, date, vendor_prefix, algo
+    signing_key = calculate_signing_key(api_secret, date, vendor_prefix, credential_scope)
+
+    signature = Digest::HMAC.hexdigest(string_to_sign, signing_key, Digest::SHA256)
+    "#{algo_id(vendor_prefix, algo)} Credential=#{api_key_id}/#{long_date(date)[0..7]}/#{credential_scope}, SignedHeaders=#{signed_headers.uniq.join ';'}, Signature=#{signature}"
+  end
+
+  def calculate_signing_key(api_secret, date, vendor_prefix, credential_scope)
+    signing_key = vendor_prefix + api_secret
+    for data in [long_date(date)[0..7]] + credential_scope.split('/') do
+      signing_key = Digest::HMAC.digest(data, signing_key, Digest::SHA256)
+    end
+    signing_key
   end
 
   def canonicalize_path(uri)
