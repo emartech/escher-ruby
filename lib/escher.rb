@@ -5,15 +5,21 @@ require 'digest'
 module Escher
   VERSION = '0.0.1'
 
-  def self.validate_request(method, url, body, headers, auth_header_name, date_header_name, vendor_prefix)
-    auth_header = get_header(auth_header_name, headers)
-    date = get_header(date_header_name, headers)
+  def self.default_options
+    {:auth_header_name => 'X-Ems-Auth', :date_header_name => 'X-Ems-Date', :vendor_prefix => 'EMS'}
+  end
 
-    algo, api_key_id, short_date, credential_scope, signed_headers, signature = parse_auth_header auth_header, vendor_prefix
+  def self.validate_request(method, url, body, headers, options = {})
+
+    options = default_options.merge(options)
+    auth_header = get_header(options[:auth_header_name], headers)
+    date = get_header(options[:date_header_name], headers)
+
+    algo, api_key_id, short_date, credential_scope, signed_headers, signature = parse_auth_header auth_header, options[:vendor_prefix]
 
     api_secret = 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'
 
-    signature == generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, url, vendor_prefix, auth_header_name)
+    signature == generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, url, options[:vendor_prefix], options[:auth_header_name])
   end
 
   def self.get_header(header_name, headers)
@@ -22,7 +28,7 @@ module Escher
 
   def self.parse_auth_header(auth_header, vendor_prefix)
     m = /#{vendor_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+) Credential=(?<credentials>[A-Za-z0-9\/\-_]+), SignedHeaders=(?<signed_headers>[A-Za-z\-;]+), Signature=(?<signature>[0-9a-f]+)$/
-      .match auth_header
+    .match auth_header
     [
         m['algo'],
     ] + m['credentials'].split('/', 3) + [
@@ -31,9 +37,10 @@ module Escher
     ]
   end
 
-  def self.get_auth_header(auth_header_name, vendor_prefix, algo, api_key_id, api_secret, date, credential_scope, method, url, body, headers, signed_headers)
-    signature = generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, url, vendor_prefix, auth_header_name)
-    "#{algo_id(vendor_prefix, algo)} Credential=#{api_key_id}/#{long_date(date)[0..7]}/#{credential_scope}, SignedHeaders=#{signed_headers.uniq.join ';'}, Signature=#{signature}"
+  def self.get_auth_header(client, method, url, body, headers, headers_to_sign, date = Time.now.utc.rfc2822, algo = 'SHA256', options = {})
+    options = default_options.merge options
+    signature = generate_signature(algo, client[:api_secret], body, client[:credential_scope], date, headers, method, headers_to_sign, url, options[:vendor_prefix], options[:auth_header_name])
+    "#{algo_id(options[:vendor_prefix], algo)} Credential=#{client[:api_key_id]}/#{long_date(date)[0..7]}/#{client[:credential_scope]}, SignedHeaders=#{headers_to_sign.uniq.join ';'}, Signature=#{signature}"
   end
 
   def self.generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, url, vendor_prefix, auth_header_name)

@@ -33,6 +33,12 @@ fixtures = %w(
 )
 # missing test:   post-vanilla-query-nonunreserved
 
+options = {
+    :auth_header_name => 'Authorization',
+    :date_header_name => 'Date',
+    :vendor_prefix => 'AWS4',
+}
+
 describe 'Escher' do
   fixtures.each do |test|
     it "should calculate canonicalized request for #{test}" do
@@ -57,7 +63,8 @@ describe 'Escher' do
     it "should calculate auth header for #{test}" do
       method, url, body, date, headers = read_request(test)
       headers_to_sign = headers.map {|k| k[0].downcase }
-      auth_header = Escher.get_auth_header 'Authorization', 'AWS4', 'SHA256', 'AKIDEXAMPLE', 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', date, 'us-east-1/host/aws4_request', method, url, body, headers, headers_to_sign
+      client = {:api_key_id => 'AKIDEXAMPLE', :api_secret => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', :credential_scope => 'us-east-1/host/aws4_request'}
+      auth_header = Escher.get_auth_header client, method, url, body, headers, headers_to_sign, date, 'SHA256', options
       expect(auth_header).to eq(fixture(test, 'authz'))
     end
   end
@@ -67,7 +74,7 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470']
     ]
-    expect(Escher.validate_request 'GET', 'http://host.foo.com/', '', headers, 'Authorization', 'Date', 'AWS4').to be true
+    expect(Escher.validate_request 'GET', 'http://host.foo.com/', '', headers, options).to be true
   end
 end
 
