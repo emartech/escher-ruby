@@ -19,8 +19,19 @@ class Escher
     ]).join "\n"
   end
 
-  def canonicalized_headers(date, uri, headers)
-    headers.merge({'Date' => date, 'Host' => uri.host}).map {|k, v| k.downcase + ':' + v }
+  def canonicalized_headers(date, uri, raw_headers)
+    collect_headers(raw_headers).merge({ 'date' => [date], 'host' => [uri.host] }).map { |k, v| k + ':' + (v.sort_by {|x| x}).join(',') }
+  end
+
+  def collect_headers(raw_headers)
+    headers = {}
+    raw_headers.each { |raw_header|
+      if headers[raw_header[0].downcase] then
+        headers[raw_header[0].downcase] << raw_header[1]
+      else
+        headers[raw_header[0].downcase] = [raw_header[1]]
+      end }
+    headers
   end
 
   def request_body_hash(body)
