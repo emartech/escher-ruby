@@ -1,7 +1,14 @@
 require 'rspec'
 require 'escher'
 
-fixtures = %w(get-vanilla-query post-x-www-form-urlencoded get-header-key-duplicate)
+fixtures = %w(
+  get-vanilla-query
+  post-x-www-form-urlencoded
+  get-header-key-duplicate
+  get-header-value-order
+  get-header-value-trim
+  get-relative get-relative-relative
+)
 
 describe 'Escher' do
   fixtures.each do |test|
