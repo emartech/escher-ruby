@@ -110,48 +110,45 @@ module Escher
 
   def self.canonicalize_path(uri)
     path = uri.path
-    while path.gsub!(%r{([^/]+)/\.\./?}) { |match|
-      $1 == '..' ? match : ''
-    } do
-    end
-      path = path.gsub(%r{/\./}, '/').sub(%r{/\.\z}, '/').gsub(/\/+/, '/')
-    end
-
-    def self.canonicalize_headers(date, uri, raw_headers, auth_header_name, date_header_name)
-      collect_headers(raw_headers, auth_header_name).merge({date_header_name.downcase => [date], 'host' => [uri.host]}).map { |k, v| k + ':' + (v.sort_by { |x| x }).join(',').gsub(/\s+/, ' ').strip }
-    end
-
-    def self.collect_headers(raw_headers, auth_header_name)
-      headers = {}
-      raw_headers.each { |raw_header|
-        if raw_header[0].downcase != auth_header_name.downcase then
-          if headers[raw_header[0].downcase] then
-            headers[raw_header[0].downcase] << raw_header[1]
-          else
-            headers[raw_header[0].downcase] = [raw_header[1]]
-          end
-        end
-      }
-      headers
-    end
-
-    def self.request_body_hash(body, algo)
-      create_algo(algo).new.hexdigest body
-    end
-
-    def self.canonicalize_query(query)
-      query = query || ''
-      query.split('&', -1)
-      .map { |pair| k, v = pair.split('=', -1)
-      if k.include? ' ' then
-        [k.str(/\S+/), '']
-      else
-        [k, v]
-      end }
-      .map { |pair|
-        k, v = pair;
-        URI::encode(k.gsub('+', ' ')) + '=' + URI::encode(v || '')
-      }
-      .sort.join '&'
-    end
+    while path.gsub!(%r{([^/]+)/\.\./?}) { |match| $1 == '..' ? match : '' } do end
+    path = path.gsub(%r{/\./}, '/').sub(%r{/\.\z}, '/').gsub(/\/+/, '/')
   end
+
+  def self.canonicalize_headers(date, uri, raw_headers, auth_header_name, date_header_name)
+    collect_headers(raw_headers, auth_header_name).merge({date_header_name.downcase => [date], 'host' => [uri.host]}).map { |k, v| k + ':' + (v.sort_by { |x| x }).join(',').gsub(/\s+/, ' ').strip }
+  end
+
+  def self.collect_headers(raw_headers, auth_header_name)
+    headers = {}
+    raw_headers.each { |raw_header|
+      if raw_header[0].downcase != auth_header_name.downcase then
+        if headers[raw_header[0].downcase] then
+          headers[raw_header[0].downcase] << raw_header[1]
+        else
+          headers[raw_header[0].downcase] = [raw_header[1]]
+        end
+      end
+    }
+    headers
+  end
+
+  def self.request_body_hash(body, algo)
+    create_algo(algo).new.hexdigest body
+  end
+
+  def self.canonicalize_query(query)
+    query = query || ''
+    query.split('&', -1)
+    .map { |pair| k, v = pair.split('=', -1)
+    if k.include? ' ' then
+      [k.str(/\S+/), '']
+    else
+      [k, v]
+    end }
+    .map { |pair|
+      k, v = pair;
+      URI::encode(k.gsub('+', ' ')) + '=' + URI::encode(v || '')
+    }
+    .sort.join '&'
+  end
+end
