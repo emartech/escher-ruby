@@ -9,7 +9,7 @@ module Escher
     {:auth_header_name => 'X-Ems-Auth', :date_header_name => 'X-Ems-Date', :vendor_prefix => 'EMS'}
   end
 
-  def self.validate_request(method, url, body, headers, options = {})
+  def self.validate_request(method, url, body, headers, key_db, options = {})
 
     options = default_options.merge(options)
     auth_header = get_header(options[:auth_header_name], headers)
@@ -17,7 +17,7 @@ module Escher
 
     algo, api_key_id, short_date, credential_scope, signed_headers, signature = parse_auth_header auth_header, options[:vendor_prefix]
 
-    api_secret = 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'
+    api_secret = key_db[api_key_id]
 
     signature == generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, url, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
   end
