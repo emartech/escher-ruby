@@ -124,6 +124,15 @@ describe 'Escher' do
     ]
     expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error
   end
+
+  it 'should detect missing auth header' do
+    headers = [
+        ['Host', 'host.foo.com'],
+        ['Date', "Mon, 09 Sep 2011 23:36:00 GMT"],
+        ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=UNPARSABLE'],
+    ]
+    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error
+  end
 end
 
 def fixture(test, extension)

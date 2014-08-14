@@ -38,6 +38,7 @@ module Escher
   def self.parse_auth_header(auth_header, vendor_prefix)
     m = /#{vendor_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+) Credential=(?<credentials>[A-Za-z0-9\/\-_]+), SignedHeaders=(?<signed_headers>[A-Za-z\-;]+), Signature=(?<signature>[0-9a-f]+)$/
     .match auth_header
+    raise 'Malformed authorization header' unless m
     [
         m['algo'],
     ] + m['credentials'].split('/', 3) + [
