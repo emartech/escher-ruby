@@ -9,17 +9,17 @@ module Escher
     {:auth_header_name => 'X-Ems-Auth', :date_header_name => 'X-Ems-Date', :vendor_prefix => 'EMS'}
   end
 
-  def self.validate_request(method, url, body, headers, key_db, options = {})
+  def self.validate_request(method, request_uri, body, headers, key_db, options = {})
 
     options = default_options.merge(options)
     auth_header = get_header(options[:auth_header_name], headers)
     date = get_header(options[:date_header_name], headers)
-
+    host = get_header('host', headers)
     algo, api_key_id, short_date, credential_scope, signed_headers, signature = parse_auth_header auth_header, options[:vendor_prefix]
 
     api_secret = key_db[api_key_id]
 
-    signature == generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, url, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
+    signature == generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, host, request_uri, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
   end
 
   def self.get_header(header_name, headers)
@@ -37,32 +37,31 @@ module Escher
     ]
   end
 
-  def self.get_auth_header(client, method, url, body, headers, headers_to_sign, date = Time.now.utc.rfc2822, algo = 'SHA256', options = {})
+  def self.get_auth_header(client, method, host, request_uri, body, headers, headers_to_sign, date = Time.now.utc.rfc2822, algo = 'SHA256', options = {})
     options = default_options.merge options
-    signature = generate_signature(algo, client[:api_secret], body, client[:credential_scope], date, headers, method, headers_to_sign, url, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
+    signature = generate_signature(algo, client[:api_secret], body, client[:credential_scope], date, headers, method, headers_to_sign, host, request_uri, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
     "#{algo_id(options[:vendor_prefix], algo)} Credential=#{client[:api_key_id]}/#{long_date(date)[0..7]}/#{client[:credential_scope]}, SignedHeaders=#{headers_to_sign.uniq.join ';'}, Signature=#{signature}"
   end
 
-  def self.generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, url, vendor_prefix, auth_header_name, date_header_name)
-    canonicalized_request = canonicalize method, url, body, date, headers, signed_headers, algo, auth_header_name, date_header_name
+  def self.generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, host, request_uri, vendor_prefix, auth_header_name, date_header_name)
+    canonicalized_request = canonicalize method, host, request_uri, body, date, headers, signed_headers, algo, auth_header_name, date_header_name
     string_to_sign = get_string_to_sign credential_scope, canonicalized_request, date, vendor_prefix, algo
-    signing_key = calculate_signing_key(api_secret, date, vendor_prefix, credential_scope, algo)
-    signature = calculate_signature(algo, signing_key, string_to_sign)
+    signing_key = calculate_signing_key api_secret, date, vendor_prefix, credential_scope, algo
+    calculate_signature algo, signing_key, string_to_sign
   end
 
   def self.calculate_signature(algo, signing_key, string_to_sign)
     Digest::HMAC.hexdigest(string_to_sign, signing_key, create_algo(algo))
   end
 
-  def self.canonicalize(method, url, body, date, headers, headers_to_sign, algo, auth_header_name, date_header_name)
-    url, query = url.split '?', 2 # URI#parse cannot parse unicode characters in query string TODO use Adressable
-    uri = URI.parse(url)
+  def self.canonicalize(method, host, request_uri, body, date, headers, headers_to_sign, algo, auth_header_name, date_header_name)
+    path, query = request_uri.split '?', 2
 
     ([
         method.upcase,
-        canonicalize_path(uri),
+        canonicalize_path(path),
         canonicalize_query(query),
-    ] + canonicalize_headers(date, uri, headers, auth_header_name, date_header_name) + [
+    ] + canonicalize_headers(date, host, headers, auth_header_name, date_header_name) + [
         '',
         (headers_to_sign | %w(date host)).join(';'),
         request_body_hash(body, algo)
@@ -108,14 +107,15 @@ module Escher
     signing_key
   end
 
-  def self.canonicalize_path(uri)
-    path = uri.path
+  def self.canonicalize_path(path)
     while path.gsub!(%r{([^/]+)/\.\./?}) { |match| $1 == '..' ? match : '' } do end
-    path = path.gsub(%r{/\./}, '/').sub(%r{/\.\z}, '/').gsub(/\/+/, '/')
+    path.gsub(%r{/\./}, '/').sub(%r{/\.\z}, '/').gsub(/\/+/, '/')
   end
 
-  def self.canonicalize_headers(date, uri, raw_headers, auth_header_name, date_header_name)
-    collect_headers(raw_headers, auth_header_name).merge({date_header_name.downcase => [date], 'host' => [uri.host]}).map { |k, v| k + ':' + (v.sort_by { |x| x }).join(',').gsub(/\s+/, ' ').strip }
+  def self.canonicalize_headers(date, host, raw_headers, auth_header_name, date_header_name)
+    collect_headers(raw_headers, auth_header_name).merge({date_header_name.downcase => [date], 'host' => [host]})
+      .sort
+      .map { |k, v| k + ':' + (v.sort_by { |x| x }).join(',').gsub(/\s+/, ' ').strip }
   end
 
   def self.collect_headers(raw_headers, auth_header_name)
