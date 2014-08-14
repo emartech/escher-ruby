@@ -2,6 +2,9 @@ require 'time'
 require 'uri'
 require 'digest'
 
+class EscherError < RuntimeError
+end
+
 module Escher
   VERSION = '0.0.1'
 
@@ -18,11 +21,15 @@ module Escher
 
     algo, api_key_id, short_date, credential_scope, signed_headers, signature = parse_auth_header auth_header, options[:vendor_prefix]
 
-    raise 'Invalid request date' unless long_date(date)[0..7] == short_date && within_range(current_time, date)
+    raise EscherError, 'Invalid request date' unless short_date(date) == short_date && within_range(current_time, date)
 
     api_secret = key_db[api_key_id]
 
     signature == generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, host, request_uri, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
+  end
+
+  def self.short_date(date)
+    long_date(date)[0..7]
   end
 
   def self.within_range(current_time, date)
@@ -31,17 +38,19 @@ module Escher
 
   def self.get_header(header_name, headers)
     header = (headers.detect { |header| header[0].downcase == header_name.downcase })
-    raise "Missing header: #{header_name}" unless header
+    raise EscherError, "Missing header: #{header_name.downcase}" unless header
     header[1]
   end
 
   def self.parse_auth_header(auth_header, vendor_prefix)
-    m = /#{vendor_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+) Credential=(?<credentials>[A-Za-z0-9\/\-_]+), SignedHeaders=(?<signed_headers>[A-Za-z\-;]+), Signature=(?<signature>[0-9a-f]+)$/
+    m = /#{vendor_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+) Credential=(?<api_key_id>[A-Za-z0-9\-_]+)\/(?<short_date>[0-9]{8})\/(?<credentials>[A-Za-z0-9\-_\/]+), SignedHeaders=(?<signed_headers>[A-Za-z\-;]+), Signature=(?<signature>[0-9a-f]+)$/
     .match auth_header
-    raise 'Malformed authorization header' unless m
+    raise EscherError, 'Malformed authorization header' unless m && m['credentials']
     [
         m['algo'],
-    ] + m['credentials'].split('/', 3) + [
+        m['api_key_id'],
+        m['short_date'],
+        m['credentials'],
         m['signed_headers'].split(';'),
         m['signature'],
     ]
@@ -50,7 +59,7 @@ module Escher
   def self.generate_auth_header(client, method, host, request_uri, body, headers, headers_to_sign, date = Time.now.utc.rfc2822, algo = 'SHA256', options = {})
     options = default_options.merge options
     signature = generate_signature(algo, client[:api_secret], body, client[:credential_scope], date, headers, method, headers_to_sign, host, request_uri, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
-    "#{algo_id(options[:vendor_prefix], algo)} Credential=#{client[:api_key_id]}/#{long_date(date)[0..7]}/#{client[:credential_scope]}, SignedHeaders=#{headers_to_sign.uniq.join ';'}, Signature=#{signature}"
+    "#{algo_id(options[:vendor_prefix], algo)} Credential=#{client[:api_key_id]}/#{short_date(date)}/#{client[:credential_scope]}, SignedHeaders=#{headers_to_sign.uniq.join ';'}, Signature=#{signature}"
   end
 
   def self.generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, host, request_uri, vendor_prefix, auth_header_name, date_header_name)
@@ -97,7 +106,7 @@ module Escher
       when 'SHA512'
         return Digest::SHA512
       else
-        raise('Unidentified hash algorithm')
+        raise EscherError, 'Unidentified hash algorithm'
     end
   end
 
@@ -111,7 +120,7 @@ module Escher
 
   def self.calculate_signing_key(api_secret, date, vendor_prefix, credential_scope, algo)
     signing_key = vendor_prefix + api_secret
-    for data in [long_date(date)[0..7]] + credential_scope.split('/') do
+    for data in [short_date(date)] + credential_scope.split('/') do
       signing_key = Digest::HMAC.digest(data, signing_key, create_algo(algo))
     end
     signing_key
