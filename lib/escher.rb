@@ -9,17 +9,24 @@ module Escher
     {:auth_header_name => 'X-Ems-Auth', :date_header_name => 'X-Ems-Date', :vendor_prefix => 'EMS'}
   end
 
-  def self.validate_request(method, request_uri, body, headers, key_db, options = {})
+  def self.validate_request(method, request_uri, body, headers, key_db, current_time = Time.now, options = {})
 
     options = default_options.merge(options)
-    auth_header = get_header(options[:auth_header_name], headers)
-    date = get_header(options[:date_header_name], headers)
     host = get_header('host', headers)
+    date = get_header(options[:date_header_name], headers)
+    auth_header = get_header(options[:auth_header_name], headers)
+
     algo, api_key_id, short_date, credential_scope, signed_headers, signature = parse_auth_header auth_header, options[:vendor_prefix]
+
+    raise 'Invalid request date' unless long_date(date)[0..7] == short_date && within_range(current_time, date)
 
     api_secret = key_db[api_key_id]
 
     signature == generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, host, request_uri, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
+  end
+
+  def self.within_range(current_time, date)
+    (current_time - 900 .. current_time + 900).cover?(Time.parse date)
   end
 
   def self.get_header(header_name, headers)

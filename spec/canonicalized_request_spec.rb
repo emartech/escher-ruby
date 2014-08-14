@@ -39,6 +39,9 @@ options = {
     :vendor_prefix => 'AWS4',
 }
 
+key_db = {'AKIDEXAMPLE' => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'}
+now = Time.parse('Mon, 09 Sep 2011 23:40:00 GMT')
+
 describe 'Escher' do
   fixtures.each do |test|
     it "should calculate canonicalized request for #{test}" do
@@ -75,8 +78,27 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
-    key_db = {'AKIDEXAMPLE' => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'}
-    expect(Escher.validate_request 'GET', '/', '', headers, key_db, options).to be true
+    expect(Escher.validate_request 'GET', '/', '', headers, key_db, now, options).to be true
+  end
+
+  it 'should detect if dates are not on the same day' do
+    yesterday = '08'
+    headers = [
+        ['Host', 'host.foo.com'],
+        ['Date', "Mon, #{yesterday} Sep 2011 23:36:00 GMT"], # date that does not match credential date
+        ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
+    ]
+    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error
+  end
+
+  it 'should detect if date is not within the 15 minutes range' do
+    long_ago = '00'
+    headers = [
+        ['Host', 'host.foo.com'],
+        ['Date', "Mon, 09 Sep 2011 23:#{long_ago}:00 GMT"], # date that does not match credential date
+        ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
+    ]
+    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error
   end
 end
 
