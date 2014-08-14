@@ -37,7 +37,7 @@ module Escher
     ]
   end
 
-  def self.get_auth_header(client, method, host, request_uri, body, headers, headers_to_sign, date = Time.now.utc.rfc2822, algo = 'SHA256', options = {})
+  def self.generate_auth_header(client, method, host, request_uri, body, headers, headers_to_sign, date = Time.now.utc.rfc2822, algo = 'SHA256', options = {})
     options = default_options.merge options
     signature = generate_signature(algo, client[:api_secret], body, client[:credential_scope], date, headers, method, headers_to_sign, host, request_uri, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
     "#{algo_id(options[:vendor_prefix], algo)} Credential=#{client[:api_key_id]}/#{long_date(date)[0..7]}/#{client[:credential_scope]}, SignedHeaders=#{headers_to_sign.uniq.join ';'}, Signature=#{signature}"

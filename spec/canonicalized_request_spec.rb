@@ -64,7 +64,7 @@ describe 'Escher' do
       method, host, request_uri, body, date, headers = read_request(test)
       headers_to_sign = headers.map {|k| k[0].downcase }
       client = {:api_key_id => 'AKIDEXAMPLE', :api_secret => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', :credential_scope => 'us-east-1/host/aws4_request'}
-      auth_header = Escher.get_auth_header client, method, host, request_uri, body, headers, headers_to_sign, date, 'SHA256', options
+      auth_header = Escher.generate_auth_header client, method, host, request_uri, body, headers, headers_to_sign, date, 'SHA256', options
       expect(auth_header).to eq(fixture(test, 'authz'))
     end
   end
