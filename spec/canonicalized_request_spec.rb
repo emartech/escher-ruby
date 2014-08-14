@@ -161,6 +161,15 @@ describe 'Escher' do
     ]
     expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Date header is not signed')
   end
+
+  it 'should check algorithm' do
+    headers = [
+        ['Host', 'host.foo.com'],
+        ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
+        ['Authorization', 'AWS4-HMAC-INVALID Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
+    ]
+    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Unidentified hash algorithm')
+  end
 end
 
 def fixture(test, extension)
