@@ -12,7 +12,7 @@ module Escher
     {:auth_header_name => 'X-Ems-Auth', :date_header_name => 'X-Ems-Date', :vendor_prefix => 'EMS'}
   end
 
-  def self.validate_request(method, request_uri, body, headers, key_db, current_time = Time.now, options = {})
+  def self.validate_request(method, request_uri, body, headers, key_db, accepted_credentials, current_time = Time.now, options = {})
 
     options = default_options.merge(options)
     host = get_header('host', headers)
@@ -24,10 +24,12 @@ module Escher
     raise EscherError, 'Host header is not signed' unless signed_headers.include? 'host'
     raise EscherError, 'Date header is not signed' unless signed_headers.include? options[:date_header_name].downcase
     raise EscherError, 'Invalid request date' unless short_date(date) == short_date && within_range(current_time, date)
+    # TODO validate host header
+    raise EscherError, 'Invalid credentials' unless credential_scope == accepted_credentials
 
     api_secret = key_db[api_key_id]
 
-    signature == generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, host, request_uri, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
+    signature == generate_signature(algo, api_secret, body, credential_scope.join('/'), date, headers, method, signed_headers, host, request_uri, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
   end
 
   def self.short_date(date)
@@ -52,7 +54,7 @@ module Escher
         m['algo'],
         m['api_key_id'],
         m['short_date'],
-        m['credentials'],
+        m['credentials'].split('/'),
         m['signed_headers'].split(';'),
         m['signature'],
     ]
@@ -60,8 +62,12 @@ module Escher
 
   def self.generate_auth_header(client, method, host, request_uri, body, headers, headers_to_sign, date = Time.now.utc.rfc2822, algo = 'SHA256', options = {})
     options = default_options.merge options
-    signature = generate_signature(algo, client[:api_secret], body, client[:credential_scope], date, headers, method, headers_to_sign, host, request_uri, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
-    "#{algo_id(options[:vendor_prefix], algo)} Credential=#{client[:api_key_id]}/#{short_date(date)}/#{client[:credential_scope]}, SignedHeaders=#{headers_to_sign.uniq.join ';'}, Signature=#{signature}"
+    signature = generate_signature(algo, client[:api_secret], body, credential_scope_as_string(client), date, headers, method, headers_to_sign, host, request_uri, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
+    "#{algo_id(options[:vendor_prefix], algo)} Credential=#{client[:api_key_id]}/#{short_date(date)}/#{credential_scope_as_string(client)}, SignedHeaders=#{headers_to_sign.uniq.join ';'}, Signature=#{signature}"
+  end
+
+  def self.credential_scope_as_string(client)
+    client[:credential_scope_as_string].join '/'
   end
 
   def self.generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, host, request_uri, vendor_prefix, auth_header_name, date_header_name)

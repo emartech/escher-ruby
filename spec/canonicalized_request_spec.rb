@@ -31,17 +31,30 @@ fixtures = %w(
   post-x-www-form-urlencoded
   post-x-www-form-urlencoded-parameters
 )
-# missing test:   post-vanilla-query-nonunreserved
 
-options = {
-    :auth_header_name => 'Authorization',
-    :date_header_name => 'Date',
-    :vendor_prefix => 'AWS4',
-}
+def good_auth_header
+  'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'
+end
 
-key_db = {'AKIDEXAMPLE' => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'}
-now = Time.parse('Mon, 09 Sep 2011 23:40:00 GMT')
-good_auth_header = 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'
+def aws_options
+  {
+      :auth_header_name => 'Authorization',
+      :date_header_name => 'Date',
+      :vendor_prefix => 'AWS4',
+  }
+end
+
+def now
+  Time.parse('Mon, 09 Sep 2011 23:40:00 GMT')
+end
+
+def credential_scope
+  %w(us-east-1 host aws4_request)
+end
+
+def key_db
+  {'AKIDEXAMPLE' => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'}
+end
 
 describe 'Escher' do
   fixtures.each do |test|
@@ -67,8 +80,8 @@ describe 'Escher' do
     it "should calculate auth header for #{test}" do
       method, host, request_uri, body, date, headers = read_request(test)
       headers_to_sign = headers.map {|k| k[0].downcase }
-      client = {:api_key_id => 'AKIDEXAMPLE', :api_secret => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', :credential_scope => 'us-east-1/host/aws4_request'}
-      auth_header = Escher.generate_auth_header client, method, host, request_uri, body, headers, headers_to_sign, date, 'SHA256', options
+      client = {:api_key_id => 'AKIDEXAMPLE', :api_secret => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', :credential_scope_as_string => credential_scope}
+      auth_header = Escher.generate_auth_header client, method, host, request_uri, body, headers, headers_to_sign, date, 'SHA256', aws_options
       expect(auth_header).to eq(fixture(test, 'authz'))
     end
   end
@@ -79,7 +92,7 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', good_auth_header],
     ]
-    expect(Escher.validate_request 'GET', '/', '', headers, key_db, now, options).to be true
+    expect(call_validate_request(headers)).to be true
   end
 
   it 'should detect if dates are not on the same day' do
@@ -89,7 +102,7 @@ describe 'Escher' do
         ['Date', "Mon, #{yesterday} Sep 2011 23:36:00 GMT"],
         ['Authorization', good_auth_header],
     ]
-    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Invalid request date')
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Invalid request date')
   end
 
   it 'should detect if date is not within the 15 minutes range' do
@@ -99,7 +112,7 @@ describe 'Escher' do
         ['Date', "Mon, 09 Sep 2011 23:#{long_ago}:00 GMT"],
         ['Authorization', good_auth_header],
     ]
-    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Invalid request date')
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Invalid request date')
   end
 
   it 'should detect missing host header' do
@@ -107,7 +120,7 @@ describe 'Escher' do
         ['Date', "Mon, 09 Sep 2011 23:36:00 GMT"],
         ['Authorization', good_auth_header],
     ]
-    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Missing header: host')
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: host')
   end
 
   it 'should detect missing date header' do
@@ -115,7 +128,7 @@ describe 'Escher' do
         ['Host', 'host.foo.com'],
         ['Authorization', good_auth_header],
     ]
-    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Missing header: date')
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: date')
   end
 
   it 'should detect missing auth header' do
@@ -123,7 +136,7 @@ describe 'Escher' do
         ['Host', 'host.foo.com'],
         ['Date', "Mon, 09 Sep 2011 23:36:00 GMT"],
     ]
-    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Missing header: authorization')
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: authorization')
   end
 
   it 'should detect malformed auth header' do
@@ -132,7 +145,7 @@ describe 'Escher' do
         ['Date', "Mon, 09 Sep 2011 23:36:00 GMT"],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=UNPARSABLE'],
     ]
-    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Malformed authorization header')
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Malformed authorization header')
   end
 
   it 'should detect malformed credential scope' do
@@ -141,7 +154,7 @@ describe 'Escher' do
         ['Date', "Mon, 09 Sep 2011 23:36:00 GMT"],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=BAD-CREDENTIAL-SCOPE, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
-    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Malformed authorization header')
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Malformed authorization header')
   end
 
   it 'should check mandatory signed headers: host' do
@@ -150,7 +163,7 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
-    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Host header is not signed')
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Host header is not signed')
   end
 
   it 'should check mandatory signed headers: date' do
@@ -159,7 +172,7 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
-    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Date header is not signed')
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Date header is not signed')
   end
 
   it 'should check algorithm' do
@@ -168,7 +181,20 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-INVALID Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
-    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Unidentified hash algorithm')
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Unidentified hash algorithm')
+  end
+
+  it 'should check credential scope' do
+    headers = [
+        ['Host', 'host.foo.com'],
+        ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
+        ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/INVALID/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
+    ]
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Invalid credentials')
+  end
+
+  def call_validate_request(headers)
+    Escher.validate_request 'GET', '/', '', headers, key_db, credential_scope, now, aws_options
   end
 end
 
