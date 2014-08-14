@@ -30,7 +30,9 @@ module Escher
   end
 
   def self.get_header(header_name, headers)
-    (headers.detect { |header| header[0].downcase == header_name.downcase })[1]
+    header = (headers.detect { |header| header[0].downcase == header_name.downcase })
+    raise "Missing header: #{header_name}" unless header
+    header[1]
   end
 
   def self.parse_auth_header(auth_header, vendor_prefix)

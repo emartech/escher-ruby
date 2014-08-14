@@ -85,7 +85,7 @@ describe 'Escher' do
     yesterday = '08'
     headers = [
         ['Host', 'host.foo.com'],
-        ['Date', "Mon, #{yesterday} Sep 2011 23:36:00 GMT"], # date that does not match credential date
+        ['Date', "Mon, #{yesterday} Sep 2011 23:36:00 GMT"],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
     expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error
@@ -95,8 +95,32 @@ describe 'Escher' do
     long_ago = '00'
     headers = [
         ['Host', 'host.foo.com'],
-        ['Date', "Mon, 09 Sep 2011 23:#{long_ago}:00 GMT"], # date that does not match credential date
+        ['Date', "Mon, 09 Sep 2011 23:#{long_ago}:00 GMT"],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
+    ]
+    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error
+  end
+
+  it 'should detect missing host header' do
+    headers = [
+        ['Date', "Mon, 09 Sep 2011 23:36:00 GMT"],
+        ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
+    ]
+    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error
+  end
+
+  it 'should detect missing date header' do
+    headers = [
+        ['Host', 'host.foo.com'],
+        ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
+    ]
+    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error
+  end
+
+  it 'should detect missing auth header' do
+    headers = [
+        ['Host', 'host.foo.com'],
+        ['Date', "Mon, 09 Sep 2011 23:36:00 GMT"],
     ]
     expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error
   end
