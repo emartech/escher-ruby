@@ -21,6 +21,8 @@ module Escher
 
     algo, api_key_id, short_date, credential_scope, signed_headers, signature = parse_auth_header auth_header, options[:vendor_prefix]
 
+    raise EscherError, 'Host header is not signed' unless signed_headers.include? 'host'
+    raise EscherError, 'Date header is not signed' unless signed_headers.include? options[:date_header_name].downcase
     raise EscherError, 'Invalid request date' unless short_date(date) == short_date && within_range(current_time, date)
 
     api_secret = key_db[api_key_id]

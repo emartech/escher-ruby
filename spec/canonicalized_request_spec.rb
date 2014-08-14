@@ -41,6 +41,7 @@ options = {
 
 key_db = {'AKIDEXAMPLE' => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'}
 now = Time.parse('Mon, 09 Sep 2011 23:40:00 GMT')
+good_auth_header = 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'
 
 describe 'Escher' do
   fixtures.each do |test|
@@ -76,7 +77,7 @@ describe 'Escher' do
     headers = [
         ['Host', 'host.foo.com'],
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
-        ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
+        ['Authorization', good_auth_header],
     ]
     expect(Escher.validate_request 'GET', '/', '', headers, key_db, now, options).to be true
   end
@@ -86,7 +87,7 @@ describe 'Escher' do
     headers = [
         ['Host', 'host.foo.com'],
         ['Date', "Mon, #{yesterday} Sep 2011 23:36:00 GMT"],
-        ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
+        ['Authorization', good_auth_header],
     ]
     expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Invalid request date')
   end
@@ -96,7 +97,7 @@ describe 'Escher' do
     headers = [
         ['Host', 'host.foo.com'],
         ['Date', "Mon, 09 Sep 2011 23:#{long_ago}:00 GMT"],
-        ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
+        ['Authorization', good_auth_header],
     ]
     expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Invalid request date')
   end
@@ -104,7 +105,7 @@ describe 'Escher' do
   it 'should detect missing host header' do
     headers = [
         ['Date', "Mon, 09 Sep 2011 23:36:00 GMT"],
-        ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
+        ['Authorization', good_auth_header],
     ]
     expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Missing header: host')
   end
@@ -112,7 +113,7 @@ describe 'Escher' do
   it 'should detect missing date header' do
     headers = [
         ['Host', 'host.foo.com'],
-        ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
+        ['Authorization', good_auth_header],
     ]
     expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Missing header: date')
   end
@@ -141,6 +142,24 @@ describe 'Escher' do
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=BAD-CREDENTIAL-SCOPE, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
     expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Malformed authorization header')
+  end
+
+  it 'should check mandatory signed headers: host' do
+    headers = [
+        ['Host', 'host.foo.com'],
+        ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
+        ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
+    ]
+    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Host header is not signed')
+  end
+
+  it 'should check mandatory signed headers: date' do
+    headers = [
+        ['Host', 'host.foo.com'],
+        ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
+        ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
+    ]
+    expect {Escher.validate_request 'GET', '/', '', headers, key_db, now, options}.to raise_error(EscherError, 'Date header is not signed')
   end
 end
 
