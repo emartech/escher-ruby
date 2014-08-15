@@ -15,7 +15,7 @@ Gem::Specification.new do |s|
   s.homepage    = 'http://emarsys.com'
   s.license     = 'MIT'
 
-  s.add_development_dependency('rspec')
-  s.add_development_dependency('rake')
-  s.add_development_dependency('codeclimate-test-reporter')
+  s.add_development_dependency('rspec', '~> 0')
+  s.add_development_dependency('rake', '~> 0')
+  s.add_development_dependency('codeclimate-test-reporter', '~> 0')
 end
