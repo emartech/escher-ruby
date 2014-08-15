@@ -90,7 +90,7 @@ module Escher
         canonicalize_query(query),
     ] + canonicalize_headers(date, host, headers, auth_header_name, date_header_name) + [
         '',
-        (headers_to_sign | %w(date host)).join(';'),
+        (headers_to_sign | [date_header_name.downcase, 'host']).join(';'),
         request_body_hash(body, algo)
     ]).join "\n"
   end
