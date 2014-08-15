@@ -67,7 +67,7 @@ module Escher
   end
 
   def self.credential_scope_as_string(client)
-    client[:credential_scope_as_string].join '/'
+    client[:credential_scope].join '/'
   end
 
   def self.generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, host, request_uri, vendor_prefix, auth_header_name, date_header_name)

@@ -80,7 +80,7 @@ describe 'Escher' do
     it "should calculate auth header for #{test}" do
       method, host, request_uri, body, date, headers = read_request(test)
       headers_to_sign = headers.map {|k| k[0].downcase }
-      client = {:api_key_id => 'AKIDEXAMPLE', :api_secret => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', :credential_scope_as_string => credential_scope}
+      client = {:api_key_id => 'AKIDEXAMPLE', :api_secret => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', :credential_scope => credential_scope}
       auth_header = Escher.generate_auth_header client, method, host, request_uri, body, headers, headers_to_sign, date, 'SHA256', aws_options
       expect(auth_header).to eq(fixture(test, 'authz'))
     end
