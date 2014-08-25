@@ -27,6 +27,7 @@ fixtures = %w(
   post-vanilla
   post-vanilla-empty-query-value
   post-vanilla-query
+  post-vanilla-query-nonunreserved
   post-vanilla-query-space
   post-x-www-form-urlencoded
   post-x-www-form-urlencoded-parameters

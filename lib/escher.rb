@@ -1,6 +1,8 @@
+require 'rubygems'
 require 'time'
 require 'uri'
 require 'digest'
+require 'addressable/uri'
 
 class EscherError < RuntimeError
 end
@@ -174,8 +176,12 @@ module Escher
     end }
     .map { |pair|
       k, v = pair;
-      URI::encode(k.gsub('+', ' ')) + '=' + URI::encode(v || '')
+      URI_encode(k.gsub('+', ' ')) + '=' + URI_encode(v || '')
     }
     .sort.join '&'
+  end
+
+  def self.URI_encode(component)
+    Addressable::URI.encode_component(component, Addressable::URI::CharacterClasses::UNRESERVED)
   end
 end
