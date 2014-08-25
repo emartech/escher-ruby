@@ -31,7 +31,49 @@ module Escher
 
     api_secret = key_db[api_key_id]
 
-    signature == generate_signature(algo, api_secret, body, credential_scope.join('/'), date, headers, method, signed_headers, host, request_uri, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
+    path, query_parts = parse_uri request_uri
+    signature == generate_signature(algo, api_secret, body, credential_scope.join('/'), date, headers, method, signed_headers, host, path, query_parts, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
+  end
+
+  def self.generate_auth_header(client, method, host, request_uri, body, headers, headers_to_sign, date = Time.now.utc.rfc2822, algo = 'SHA256', options = {})
+    options = default_options.merge options
+    path, query_parts = parse_uri(request_uri)
+    headers = add_defaults_to headers, host, date, options[:date_header_name]
+    headers_to_sign |= [options[:date_header_name].downcase, 'host']
+    signature = generate_signature(algo, client[:api_secret], body, credential_scope_as_string(client), date, headers, method, headers_to_sign, host, path, query_parts, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
+    "#{algo_id(options[:vendor_prefix], algo)} Credential=#{client[:api_key_id]}/#{short_date(date)}/#{credential_scope_as_string(client)}, SignedHeaders=#{headers_to_sign.uniq.join ';'}, Signature=#{signature}"
+  end
+
+  def self.generate_signed_url(client, protocol, host, request_uri, date = Time.now.utc.rfc2822, expires = 86400, algo = 'SHA256', options = {})
+    options = default_options.merge options
+    path, query_parts = parse_uri(request_uri)
+    headers = [['host', host]]
+    headers_to_sign = ['host']
+    body = 'UNSIGNED-PAYLOAD'
+    scope_as_string = credential_scope_as_string(client)
+    query_parts += signing_params(client, algo, date, expires, headers_to_sign, options, scope_as_string)
+    signature = generate_signature(algo, client[:api_secret], body, scope_as_string, date, headers, 'GET', headers_to_sign, host, path, query_parts, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
+
+    query_parts_with_signature = (query_parts.map { |k, v| [k, URI_encode(v)] } << query_pair('Signature', signature, options[:vendor_prefix]))
+    protocol + '://' + host + path + '?' + query_parts_with_signature.map { |k, v| k + '=' + v }.join('&')
+  end
+
+  def self.signing_params(client, algo, date, expires, headers_to_sign, options, scope_as_string)
+    [
+        ['Algorithm', "#{algo_id(options[:vendor_prefix], algo)}"],
+        ['Credentials', "#{client[:api_key_id]}/#{short_date(date)}/#{scope_as_string}"],
+        ['Date', long_date(date)],
+        ['Expires', expires.to_s],
+        ['SignedHeaders', headers_to_sign.join(';')],
+    ].map { |k, v| query_pair(k, v, options[:vendor_prefix]) }
+  end
+
+  def self.query_pair(k, v, vendor_prefix)
+    ["X-#{vendor_prefix}-#{k}", URI::encode(v)]
+  end
+
+  def self.query_key_for(key, vendor_prefix)
+    "X-#{vendor_prefix}-#{key}"
   end
 
   def self.short_date(date)
@@ -62,49 +104,62 @@ module Escher
     ]
   end
 
-  def self.generate_auth_header(client, method, host, request_uri, body, headers, headers_to_sign, date = Time.now.utc.rfc2822, algo = 'SHA256', options = {})
-    options = default_options.merge options
-    signature = generate_signature(algo, client[:api_secret], body, credential_scope_as_string(client), date, headers, method, headers_to_sign, host, request_uri, options[:vendor_prefix], options[:auth_header_name], options[:date_header_name])
-    "#{algo_id(options[:vendor_prefix], algo)} Credential=#{client[:api_key_id]}/#{short_date(date)}/#{credential_scope_as_string(client)}, SignedHeaders=#{headers_to_sign.uniq.join ';'}, Signature=#{signature}"
-  end
-
   def self.credential_scope_as_string(client)
     client[:credential_scope].join '/'
   end
 
-  def self.generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, host, request_uri, vendor_prefix, auth_header_name, date_header_name)
-    canonicalized_request = canonicalize method, host, request_uri, body, date, headers, signed_headers, algo, auth_header_name, date_header_name
+  def self.generate_signature(algo, api_secret, body, credential_scope, date, headers, method, signed_headers, host, path, query_parts, vendor_prefix, auth_header_name, date_header_name)
+    canonicalized_request = canonicalize method, path, query_parts, body, headers, signed_headers.uniq, algo, auth_header_name
     string_to_sign = get_string_to_sign credential_scope, canonicalized_request, date, vendor_prefix, algo
     signing_key = calculate_signing_key api_secret, date, vendor_prefix, credential_scope, algo
     calculate_signature algo, signing_key, string_to_sign
+  end
+
+  def self.add_defaults_to(headers, host, date, date_header_name)
+    [['host', host], [date_header_name, date]].each { |k, v| headers = add_if_missing headers, k, v }
+    headers
+  end
+
+  def self.add_if_missing(headers, header_to_find, value)
+    headers += [header_to_find, value] unless headers.find { |header| k, v = header; k.downcase == header_to_find.downcase }
+    headers
   end
 
   def self.calculate_signature(algo, signing_key, string_to_sign)
     Digest::HMAC.hexdigest(string_to_sign, signing_key, create_algo(algo))
   end
 
-  def self.canonicalize(method, host, request_uri, body, date, headers, headers_to_sign, algo, auth_header_name, date_header_name)
-    path, query = request_uri.split '?', 2
-
+  def self.canonicalize(method, path, query_parts, body, headers, headers_to_sign, algo, auth_header_name)
     ([
         method.upcase,
         canonicalize_path(path),
-        canonicalize_query(query),
-    ] + canonicalize_headers(date, host, headers, auth_header_name, date_header_name) + [
+        canonicalize_query(query_parts),
+    ] + canonicalize_headers(headers, auth_header_name) + [
         '',
-        (headers_to_sign | [date_header_name.downcase, 'host']).join(';'),
+        headers_to_sign.uniq.join(';'),
         request_body_hash(body, algo)
     ]).join "\n"
   end
 
-  # TODO: extract algo creation
-  def self.get_string_to_sign(credential_scope, canonicalized_request, date, prefix, algo)
+  def self.parse_uri(request_uri)
+    path, query = request_uri.split '?', 2
+    return path, parse_query(query)
+  end
+
+  def self.parse_query(query)
+    (query || '')
+    .split('&', -1)
+    .map { |pair| pair.split('=', -1) }
+    .map { |k, v| (k.include?' ') ? [k.str(/\S+/), ''] : [k, v] }
+  end
+
+  def self.get_string_to_sign(credential_scope, canonicalized_req, date, prefix, algo)
     date = long_date(date)
     lines = [
         algo_id(prefix, algo),
         date,
         date[0..7] + '/' + credential_scope,
-        create_algo(algo).new.hexdigest(canonicalized_request)
+        create_algo(algo).new.hexdigest(canonicalized_req)
     ]
     lines.join "\n"
   end
@@ -121,7 +176,7 @@ module Escher
   end
 
   def self.long_date(date)
-    Time.parse(date).utc.strftime("%Y%m%dT%H%M%SZ")
+    Time.parse(date).utc.strftime('%Y%m%dT%H%M%SZ')
   end
 
   def self.algo_id(prefix, algo)
@@ -141,23 +196,23 @@ module Escher
     path.gsub(%r{/\./}, '/').sub(%r{/\.\z}, '/').gsub(/\/+/, '/')
   end
 
-  def self.canonicalize_headers(date, host, raw_headers, auth_header_name, date_header_name)
-    collect_headers(raw_headers, auth_header_name).merge({date_header_name.downcase => [date], 'host' => [host]})
+  def self.canonicalize_headers(raw_headers, auth_header_name)
+    collect_headers(raw_headers, auth_header_name)
       .sort
       .map { |k, v| k + ':' + (v.sort_by { |x| x }).join(',').gsub(/\s+/, ' ').strip }
   end
 
   def self.collect_headers(raw_headers, auth_header_name)
     headers = {}
-    raw_headers.each { |raw_header|
-      if raw_header[0].downcase != auth_header_name.downcase then
-        if headers[raw_header[0].downcase] then
+    raw_headers.each do |raw_header|
+      if raw_header[0].downcase != auth_header_name.downcase
+        if headers[raw_header[0].downcase]
           headers[raw_header[0].downcase] << raw_header[1]
         else
           headers[raw_header[0].downcase] = [raw_header[1]]
         end
       end
-    }
+    end
     headers
   end
 
@@ -165,20 +220,10 @@ module Escher
     create_algo(algo).new.hexdigest body
   end
 
-  def self.canonicalize_query(query)
-    query = query || ''
-    query.split('&', -1)
-    .map { |pair| k, v = pair.split('=', -1)
-    if k.include? ' ' then
-      [k.str(/\S+/), '']
-    else
-      [k, v]
-    end }
-    .map { |pair|
-      k, v = pair;
-      URI_encode(k.gsub('+', ' ')) + '=' + URI_encode(v || '')
-    }
-    .sort.join '&'
+  def self.canonicalize_query(query_parts)
+    query_parts
+      .map { |k, v| URI_encode(k.gsub('+', ' ')) + '=' + URI_encode(v || '') }
+      .sort.join '&'
   end
 
   def self.URI_encode(component)

@@ -1,6 +1,10 @@
 require 'rspec'
 require 'escher'
 
+# X-EMS-Algorithm=EMS-HMAC-SHA256&X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&X-EMS-Date=20110511T100000Z&X-EMS-Expires=123456&X-EMS-SignedHeaders=host&baz=barbaz&foo=bar
+# X-EMS-Algorithm=EMS-HMAC-SHA256&X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&X-EMS-Date=20110511T120000Z&X-EMS-Expires=123456&X-EMS-SignedHeaders=host&baz=barbaz&foo=bar
+# X-EMS-Algorithm=EMS-HMAC-SHA256&X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&X-EMS-Date=20110511T120000Z&X-EMS-Expires=123456&X-EMS-SignedHeaders=host&baz=barbaz&foo=bar
+
 fixtures = %w(
   get-header-key-duplicate
   get-header-value-order
@@ -31,6 +35,7 @@ fixtures = %w(
   post-vanilla-query-space
   post-x-www-form-urlencoded
   post-x-www-form-urlencoded-parameters
+
 )
 
 def good_auth_header
@@ -49,42 +54,61 @@ def now
   Time.parse('Mon, 09 Sep 2011 23:40:00 GMT')
 end
 
+def key_db
+  {'AKIDEXAMPLE' => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'}
+end
+
 def credential_scope
   %w(us-east-1 host aws4_request)
 end
 
-def key_db
-  {'AKIDEXAMPLE' => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'}
+def client
+  {:api_key_id => 'AKIDEXAMPLE', :api_secret => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', :credential_scope => credential_scope}
 end
 
 describe 'Escher' do
   fixtures.each do |test|
     it "should calculate canonicalized request for #{test}" do
-      method, host, request_uri, body, date, headers = read_request(test)
+      method, request_uri, body, headers = read_request(test)
       headers_to_sign = headers.map {|k| k[0].downcase }
-      canonicalized_request = Escher.canonicalize method, host, request_uri, body, date, headers, headers_to_sign, 'SHA256', 'Authorization', 'Date'
+      path, query_parts = Escher.parse_uri request_uri
+      canonicalized_request = Escher.canonicalize method, path, query_parts, body, headers, headers_to_sign, 'SHA256', 'Authorization'
       check_canonicalized_request(canonicalized_request, test)
     end
   end
 
   fixtures.each do |test|
     it "should calculate string to sign for #{test}" do
-      method, host, request_uri, body, date, headers = read_request(test)
+      method, request_uri, body, headers, date = read_request(test)
       headers_to_sign = headers.map {|k| k[0].downcase }
-      canonicalized_request = Escher.canonicalize method, host, request_uri, body, date, headers, headers_to_sign, 'SHA256', 'Authorization', 'Date'
+      path, query_parts = Escher.parse_uri request_uri
+      canonicalized_request = Escher.canonicalize method, path, query_parts, body, headers, headers_to_sign, 'SHA256', 'Authorization'
       string_to_sign = Escher.get_string_to_sign 'us-east-1/host/aws4_request', canonicalized_request, date, 'AWS4', 'SHA256'
-                                                     expect(string_to_sign).to eq(fixture(test, 'sts'))
+      expect(string_to_sign).to eq(fixture(test, 'sts'))
     end
   end
 
   fixtures.each do |test|
     it "should calculate auth header for #{test}" do
-      method, host, request_uri, body, date, headers = read_request(test)
+      method, request_uri, body, headers, date, host = read_request(test)
       headers_to_sign = headers.map {|k| k[0].downcase }
-      client = {:api_key_id => 'AKIDEXAMPLE', :api_secret => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', :credential_scope => credential_scope}
       auth_header = Escher.generate_auth_header client, method, host, request_uri, body, headers, headers_to_sign, date, 'SHA256', aws_options
       expect(auth_header).to eq(fixture(test, 'authz'))
     end
+  end
+
+  it 'should generate signed url' do
+    expected_url =
+        'http://example.com/something?foo=bar&' + 'baz=barbaz&' +
+            'X-EMS-Algorithm=EMS-HMAC-SHA256&' +
+            'X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&' +
+            'X-EMS-Date=20110511T120000Z&' +
+            'X-EMS-Expires=123456&' +
+            'X-EMS-SignedHeaders=host&' +
+            'X-EMS-Signature=fbc9dbb91670e84d04ad2ae7505f4f52ab3ff9e192b8233feeae57e9022c2b67'
+
+    client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure', :credential_scope =>  %w(us-east-1 host aws4_request)}
+    expect(Escher.generate_signed_url client, 'http', 'example.com', '/something?foo=bar&baz=barbaz', Time.parse('2011/05/11 12:00:00 UTC').rfc2822, 123456, 'SHA256', {:vendor_prefix => 'EMS'}).to eq expected_url
   end
 
   it 'should validate request' do
@@ -215,7 +239,8 @@ def read_request(test, extension = 'req')
   lines = (fixture(test, extension) + "\n").lines.map(&:chomp)
   method, request_uri = lines[0].split ' '
   headers = lines[1..-3].map { |header| k, v = header.split(':', 2); [k, v] }
-  [method, get_host(headers), request_uri, lines[-1], get_date(headers), headers]
+  request_body = lines[-1]
+  [method, request_uri, request_body, headers, get_date(headers), get_host(headers)]
 end
 
 def check_canonicalized_request(canonicalized_request, test)
