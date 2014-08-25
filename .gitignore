@@ -1,3 +1,14 @@
+# Ignore bundler config.
+/.bundle
+
 .idea
 *.gem
 Gemfile.lock
+/vendor/
+
+
+# Ignore all logfiles and tempfiles.
+/log/*.log
+/tmp
+
+.env
