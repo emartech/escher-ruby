@@ -1,4 +1,5 @@
-require 'rubygems'
+require "escher/version"
+
 require 'time'
 require 'uri'
 require 'digest'
@@ -8,8 +9,6 @@ class EscherError < RuntimeError
 end
 
 module Escher
-  VERSION = '0.0.2'
-
   def self.default_options
     {:auth_header_name => 'X-Ems-Auth', :date_header_name => 'X-Ems-Date', :vendor_prefix => 'EMS'}
   end
