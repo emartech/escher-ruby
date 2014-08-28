@@ -8,9 +8,9 @@ require 'addressable/uri'
 class EscherError < RuntimeError
 end
 
-module Escher
+class Escher
   def self.default_options
-    {:auth_header_name => 'X-Ems-Auth', :date_header_name => 'X-Ems-Date', :vendor_prefix => 'EMS'}
+    {:auth_header_name => 'X-Escher-Auth', :date_header_name => 'X-Escher-Date', :vendor_prefix => 'Escher'}
   end
 
   def self.validate_request(method, request_uri, body, headers, key_db, accepted_credentials, current_time = Time.now, options = {})
