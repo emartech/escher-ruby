@@ -1,8 +1,8 @@
-Escher - Emarsys Request Signer
-===============================
+Escher - Library for HTTP request signing (Ruby implementation)
+===============================================================
 
-Ruby implementation of Emarsys' API authentication signing protocol. The status of this authentication method is *work in progress*, you cannot use it in production yet.
+Escher helps you creating secure HTTP requests (for APIs) by signing HTTP(s) requests. It's both a server side and client side implementation. The status is work in progress.
 
-The algorithm is based on [Amazon's _AWS Signature Version 4_](http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html), but we have customized it for our own needs.
+The algorithm is based on [Amazon's _AWS Signature Version 4_](http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html), but we have generalized and extended it.
 
 More details will be available at our [documentation site](https://documentation.emarsys.com/).
