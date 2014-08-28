@@ -1,5 +1,4 @@
-require 'rspec'
-require 'escher'
+require 'spec_helper'
 
 # X-EMS-Algorithm=EMS-HMAC-SHA256&X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&X-EMS-Date=20110511T100000Z&X-EMS-Expires=123456&X-EMS-SignedHeaders=host&baz=barbaz&foo=bar
 # X-EMS-Algorithm=EMS-HMAC-SHA256&X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&X-EMS-Date=20110511T120000Z&X-EMS-Expires=123456&X-EMS-SignedHeaders=host&baz=barbaz&foo=bar
