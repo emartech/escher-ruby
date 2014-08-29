@@ -1,5 +1,5 @@
-Escher - Library for HTTP request signing (Ruby implementation)
-===============================================================
+EscherRuby - HTTP request signing lib [![Build Status](https://travis-ci.org/emartech/escher-ruby.svg?branch=master)](https://travis-ci.org/emartech/escher-ruby)
+=====================================
 
 Escher helps you creating secure HTTP requests (for APIs) by signing HTTP(s) requests. It's both a server side and client side implementation. The status is work in progress.
 
