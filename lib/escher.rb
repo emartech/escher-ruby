@@ -46,7 +46,7 @@ class Escher
 
     path, query_parts = parse_uri request_uri
     expected_signature = escher.generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
-    signature == expected_signature
+    raise EscherError, 'The signatures do not match' unless signature == expected_signature
   end
 
   # TODO: do we really need host here?

@@ -1,9 +1,5 @@
 require 'spec_helper'
 
-# X-EMS-Algorithm=EMS-HMAC-SHA256&X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&X-EMS-Date=20110511T100000Z&X-EMS-Expires=123456&X-EMS-SignedHeaders=host&baz=barbaz&foo=bar
-# X-EMS-Algorithm=EMS-HMAC-SHA256&X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&X-EMS-Date=20110511T120000Z&X-EMS-Expires=123456&X-EMS-SignedHeaders=host&baz=barbaz&foo=bar
-# X-EMS-Algorithm=EMS-HMAC-SHA256&X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&X-EMS-Date=20110511T120000Z&X-EMS-Expires=123456&X-EMS-SignedHeaders=host&baz=barbaz&foo=bar
-
 fixtures = %w(
   get-header-key-duplicate
   get-header-value-order
@@ -116,7 +112,16 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', GOOD_AUTH_HEADER],
     ]
-    expect(call_validate_request(headers)).to be true
+    expect { call_validate_request(headers) }.not_to raise_error
+  end
+
+  it 'should detect if signatures do not match' do
+    headers = [
+        ['Host', 'host.foo.com'],
+        ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
+        ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'],
+    ]
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'The signatures do not match')
   end
 
   it 'should detect if dates are not on the same day' do
