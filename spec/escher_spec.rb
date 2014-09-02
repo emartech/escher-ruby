@@ -37,21 +37,17 @@ fixtures = %w(
 
 )
 
-def good_auth_header
-  'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'
-end
+ESCHER_AWS4_OPTIONS = {
+  vendor_prefix: 'AWS4', hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date',
+  credential_scope: 'us-east-1/host/aws4_request'
+}
 
-def aws_options
-  {
-      :auth_header_name => 'Authorization',
-      :date_header_name => 'Date',
-      :vendor_prefix => 'AWS4',
-  }
-end
+ESCHER_EMARSYS_OPTIONS = {
+  vendor_prefix: 'EMS', hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date',
+  credential_scope: 'us-east-1/host/aws4_request'
+}
 
-def now
-  Time.parse('Mon, 09 Sep 2011 23:40:00 GMT')
-end
+GOOD_AUTH_HEADER = 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'
 
 def key_db
   {'AKIDEXAMPLE' => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'}
@@ -68,39 +64,39 @@ end
 describe 'Escher' do
   fixtures.each do |test|
     it "should calculate canonicalized request for #{test}" do
-      escher = Escher.new(hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date')
+      escher = Escher.new(ESCHER_AWS4_OPTIONS)
       method, request_uri, body, headers = read_request(test)
       headers_to_sign = headers.map {|k| k[0].downcase }
       path, query_parts = escher.parse_uri(request_uri)
-      canonicalized_request = escher.canonicalize(method, path, query_parts, body, headers, headers_to_sign, 'Authorization')
+      canonicalized_request = escher.canonicalize(method, path, query_parts, body, headers, headers_to_sign)
       check_canonicalized_request(canonicalized_request, test)
     end
   end
 
   fixtures.each do |test|
     it "should calculate string to sign for #{test}" do
-      escher = Escher.new(hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date')
       method, request_uri, body, headers, date = read_request(test)
+      escher = Escher.new(ESCHER_AWS4_OPTIONS.merge(current_time: Time.parse(date)))
       headers_to_sign = headers.map {|k| k[0].downcase }
       path, query_parts = escher.parse_uri(request_uri)
-      canonicalized_request = escher.canonicalize(method, path, query_parts, body, headers, headers_to_sign, 'Authorization')
-      string_to_sign = escher.get_string_to_sign('us-east-1/host/aws4_request', canonicalized_request, date, 'AWS4', 'SHA256')
+      canonicalized_request = escher.canonicalize(method, path, query_parts, body, headers, headers_to_sign)
+      string_to_sign = escher.get_string_to_sign(canonicalized_request)
       expect(string_to_sign).to eq(fixture(test, 'sts'))
     end
   end
 
   fixtures.each do |test|
     it "should calculate auth header for #{test}" do
-      escher = Escher.new(hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date')
       method, request_uri, body, headers, date, host = read_request(test)
+      escher = Escher.new(ESCHER_AWS4_OPTIONS.merge(current_time: Time.parse(date)))
       headers_to_sign = headers.map {|k| k[0].downcase }
-      auth_header = escher.generate_auth_header(client, method, host, request_uri, body, headers, headers_to_sign, date, 'SHA256', aws_options)
+      auth_header = escher.generate_auth_header(client, method, host, request_uri, body, headers, headers_to_sign)
       expect(auth_header).to eq(fixture(test, 'authz'))
     end
   end
 
   it 'should generate signed url' do
-    escher = Escher.new(hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date')
+    escher = Escher.new(ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('2011/05/11 12:00:00 UTC')))
     expected_url =
         'http://example.com/something?foo=bar&' + 'baz=barbaz&' +
             'X-EMS-Algorithm=EMS-HMAC-SHA256&' +
@@ -111,14 +107,14 @@ describe 'Escher' do
             'X-EMS-Signature=fbc9dbb91670e84d04ad2ae7505f4f52ab3ff9e192b8233feeae57e9022c2b67'
 
     client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure', :credential_scope =>  %w(us-east-1 host aws4_request)}
-    expect(escher.generate_signed_url(client, 'http', 'example.com', '/something?foo=bar&baz=barbaz', Time.parse('2011/05/11 12:00:00 UTC').rfc2822, 123456, {:vendor_prefix => 'EMS'})).to eq expected_url
+    expect(escher.generate_signed_url(client, 'http', 'example.com', '/something?foo=bar&baz=barbaz', 123456)).to eq expected_url
   end
 
   it 'should validate request' do
     headers = [
         ['Host', 'host.foo.com'],
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
-        ['Authorization', good_auth_header],
+        ['Authorization', GOOD_AUTH_HEADER],
     ]
     expect(call_validate_request(headers)).to be true
   end
@@ -128,7 +124,7 @@ describe 'Escher' do
     headers = [
         ['Host', 'host.foo.com'],
         ['Date', "Mon, #{yesterday} Sep 2011 23:36:00 GMT"],
-        ['Authorization', good_auth_header],
+        ['Authorization', GOOD_AUTH_HEADER],
     ]
     expect { call_validate_request(headers) }.to raise_error(EscherError, 'Invalid request date')
   end
@@ -138,7 +134,7 @@ describe 'Escher' do
     headers = [
         ['Host', 'host.foo.com'],
         ['Date', "Mon, 09 Sep 2011 23:#{long_ago}:00 GMT"],
-        ['Authorization', good_auth_header],
+        ['Authorization', GOOD_AUTH_HEADER],
     ]
     expect { call_validate_request(headers) }.to raise_error(EscherError, 'Invalid request date')
   end
@@ -146,7 +142,7 @@ describe 'Escher' do
   it 'should detect missing host header' do
     headers = [
         ['Date', "Mon, 09 Sep 2011 23:36:00 GMT"],
-        ['Authorization', good_auth_header],
+        ['Authorization', GOOD_AUTH_HEADER],
     ]
     expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: host')
   end
@@ -154,7 +150,7 @@ describe 'Escher' do
   it 'should detect missing date header' do
     headers = [
         ['Host', 'host.foo.com'],
-        ['Authorization', good_auth_header],
+        ['Authorization', GOOD_AUTH_HEADER],
     ]
     expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: date')
   end
@@ -222,9 +218,10 @@ describe 'Escher' do
   end
 
   def call_validate_request(headers)
-    escher = Escher.new(hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date')
-    escher.validate_request('GET', '/', '', headers, key_db, credential_scope, now, aws_options)
+    escher = Escher.new(ESCHER_AWS4_OPTIONS.merge(current_time: Time.parse('Mon, 09 Sep 2011 23:40:00 GMT')))
+    escher.validate_request('GET', '/', '', headers, key_db)
   end
+
 end
 
 def fixture(test, extension)
