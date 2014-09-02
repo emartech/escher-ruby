@@ -83,8 +83,21 @@ class Escher
     body = 'UNSIGNED-PAYLOAD'
     signature, signing_params, query_parts = extract_signing_params(query_parts)
 
+    client_api_key_id, short_date, credential_scope = signing_params['credentials'].split('/', 3)
+    signed_headers = signing_params['signedheaders'].split(';')
+    date = Time.parse(signing_params['date'])
+    expires = signing_params['expires'].to_i
+
+    raise EscherError, 'Host header is not signed' unless signed_headers.include? 'host'
+    # raise EscherError, 'Date header is not signed' unless signed_headers.include? @date_header_name.downcase
+    raise EscherError, 'Invalid request date' unless short_date(date) == short_date && is_date_not_expired?(date, expires)
+    # TODO validate host header
+    raise EscherError, 'Invalid credentials' unless credential_scope == @credential_scope
+
     expected_signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
-    signature == expected_signature
+    raise EscherError, 'The signatures do not match' unless signature == expected_signature
+
+    return true
   end
 
   def get_signing_params(client, expires, headers_to_sign)
@@ -221,6 +234,11 @@ class Escher
 
   def is_date_within_range?(date)
     (@current_time - 900 .. @current_time + 900).cover?(date)
+  end
+
+  def is_date_not_expired?(date, expires)
+    # TODO: check the docs for the FROM part
+    (@current_time .. @current_time + expires).cover?(date)
   end
 
   def get_algo_id
