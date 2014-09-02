@@ -64,14 +64,23 @@ class Escher
     headers = [['host', host]]
     headers_to_sign = ['host']
     body = 'UNSIGNED-PAYLOAD'
-    query_parts += signing_params(client, expires, headers_to_sign)
+    query_parts += get_signing_params(client, expires, headers_to_sign)
     signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
 
     query_parts_with_signature = (query_parts.map { |k, v| [k, URI_encode(v)] } << query_pair('Signature', signature, @vendor_prefix))
     protocol + '://' + host + path + '?' + query_parts_with_signature.map { |k, v| k + '=' + v }.join('&')
   end
 
-  def signing_params(client, expires, headers_to_sign)
+  def validate_signed_url(presigned_url, client)
+    puts URI.parse(presigned_url)
+    protocol = request.protocol
+    host = request.host
+    request_uri = request.uri
+    path, query_parts = parse_uri(request_uri)
+    signed_params, query_parts = extract_signing_params
+  end
+
+  def get_signing_params(client, expires, headers_to_sign)
     [
         ['Algorithm', get_algo_id],
         ['Credentials', "#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}"],

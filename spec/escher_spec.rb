@@ -91,7 +91,7 @@ describe 'Escher' do
     end
   end
 
-  it 'should generate signed url' do
+  it 'should generate presigned url' do
     escher = Escher.new(ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('2011/05/11 12:00:00 UTC')))
     expected_url =
         'http://example.com/something?foo=bar&' + 'baz=barbaz&' +
@@ -102,8 +102,23 @@ describe 'Escher' do
             'X-EMS-SignedHeaders=host&' +
             'X-EMS-Signature=fbc9dbb91670e84d04ad2ae7505f4f52ab3ff9e192b8233feeae57e9022c2b67'
 
-    client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure', :credential_scope =>  %w(us-east-1 host aws4_request)}
+    client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
     expect(escher.generate_signed_url(client, 'http', 'example.com', '/something?foo=bar&baz=barbaz', 123456)).to eq expected_url
+  end
+
+  it 'should validate presigned url' do
+    escher = Escher.new(ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('2011/05/11 12:00:00 UTC')))
+    presigned_url =
+      'http://example.com/something?foo=bar&' + 'baz=barbaz&' +
+        'X-EMS-Algorithm=EMS-HMAC-SHA256&' +
+        'X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&' +
+        'X-EMS-Date=20110511T120000Z&' +
+        'X-EMS-Expires=123456&' +
+        'X-EMS-SignedHeaders=host&' +
+        'X-EMS-Signature=fbc9dbb91670e84d04ad2ae7505f4f52ab3ff9e192b8233feeae57e9022c2b67'
+
+    client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
+    expect(escher.validate_signed_url(presigned_url, client)).to be true
   end
 
   it 'should validate request' do
