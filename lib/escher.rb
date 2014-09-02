@@ -3,6 +3,7 @@ require "escher/version"
 require 'time'
 require 'uri'
 require 'digest'
+require 'pathname'
 require 'addressable/uri'
 
 class EscherError < RuntimeError
@@ -20,11 +21,11 @@ class Escher
   end
 
   def validate_request(method, request_uri, body, headers, key_db)
-    host = get_header('host', headers)
+    host = get_header('host', headers) # TODO: Indirect validation if the host header is missing
     date = Time.parse(get_header(@date_header_name, headers))
     auth_header = get_header(@auth_header_name, headers)
 
-    algo, api_key_id, short_date, credential_scope, signed_headers, signature = parse_auth_header(auth_header, @vendor_prefix)
+    algo, api_key_id, short_date, credential_scope, signed_headers, signature = parse_auth_header(auth_header)
 
     escher = Escher.new(
       vendor_prefix: @vendor_prefix,
@@ -44,25 +45,27 @@ class Escher
     api_secret = key_db[api_key_id]
 
     path, query_parts = parse_uri request_uri
-    expected_signature = escher.generate_signature(api_secret, body, headers, method, signed_headers, host, path, query_parts)
+    expected_signature = escher.generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
     signature == expected_signature
   end
 
+  # TODO: do we really need host here?
   def generate_auth_header(client, method, host, request_uri, body, headers, headers_to_sign)
     path, query_parts = parse_uri(request_uri)
     headers = add_defaults_to(headers, host, @current_time.utc.rfc2822)
     headers_to_sign |= [@date_header_name.downcase, 'host']
-    signature = generate_signature(client[:api_secret], body, headers, method, headers_to_sign, host, path, query_parts)
-    "#{algo_id(@vendor_prefix, @hash_algo)} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{headers_to_sign.uniq.join ';'}, Signature=#{signature}"
+    signature = generate_signature(client[:api_secret], body, headers, method, headers_to_sign, path, query_parts)
+    "#{get_algo_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{headers_to_sign.uniq.join ';'}, Signature=#{signature}"
   end
 
+  # TODO: remove host
   def generate_signed_url(client, protocol, host, request_uri, expires = 86400)
     path, query_parts = parse_uri(request_uri)
     headers = [['host', host]]
     headers_to_sign = ['host']
     body = 'UNSIGNED-PAYLOAD'
     query_parts += signing_params(client, expires, headers_to_sign)
-    signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, host, path, query_parts)
+    signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
 
     query_parts_with_signature = (query_parts.map { |k, v| [k, URI_encode(v)] } << query_pair('Signature', signature, @vendor_prefix))
     protocol + '://' + host + path + '?' + query_parts_with_signature.map { |k, v| k + '=' + v }.join('&')
@@ -70,7 +73,7 @@ class Escher
 
   def signing_params(client, expires, headers_to_sign)
     [
-        ['Algorithm', "#{algo_id(@vendor_prefix, @hash_algo)}"],
+        ['Algorithm', get_algo_id],
         ['Credentials', "#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}"],
         ['Date', long_date(@current_time)],
         ['Expires', expires.to_s],
@@ -86,22 +89,14 @@ class Escher
     "X-#{vendor_prefix}-#{key}"
   end
 
-  def short_date(date)
-    long_date(date)[0..7]
-  end
-
-  def is_date_within_range?(date)
-    (@current_time - 900 .. @current_time + 900).cover?(date)
-  end
-
   def get_header(header_name, headers)
     header = (headers.detect { |header| header[0].downcase == header_name.downcase })
     raise EscherError, "Missing header: #{header_name.downcase}" unless header
     header[1]
   end
 
-  def parse_auth_header(auth_header, vendor_prefix)
-    m = /#{vendor_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+) Credential=(?<api_key_id>[A-Za-z0-9\-_]+)\/(?<short_date>[0-9]{8})\/(?<credentials>[A-Za-z0-9\-_\/]+), SignedHeaders=(?<signed_headers>[A-Za-z\-;]+), Signature=(?<signature>[0-9a-f]+)$/
+  def parse_auth_header(auth_header)
+    m = /#{@vendor_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+) Credential=(?<api_key_id>[A-Za-z0-9\-_]+)\/(?<short_date>[0-9]{8})\/(?<credentials>[A-Za-z0-9\-_\/]+), SignedHeaders=(?<signed_headers>[A-Za-z\-;]+), Signature=(?<signature>[0-9a-f]+)$/
     .match auth_header
     raise EscherError, 'Malformed authorization header' unless m && m['credentials']
     [
@@ -115,11 +110,11 @@ class Escher
   end
 
   # TODO: remove unused params
-  def generate_signature(api_secret, body, headers, method, signed_headers, host, path, query_parts)
+  def generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
     canonicalized_request = canonicalize(method, path, query_parts, body, headers, signed_headers.uniq)
     string_to_sign = get_string_to_sign(canonicalized_request)
     signing_key = calculate_signing_key(api_secret)
-    calculate_signature(signing_key, string_to_sign)
+    Digest::HMAC.hexdigest(string_to_sign, signing_key, create_algo)
   end
 
   def add_defaults_to(headers, host, date)
@@ -132,10 +127,6 @@ class Escher
     headers
   end
 
-  def calculate_signature(signing_key, string_to_sign)
-    Digest::HMAC.hexdigest(string_to_sign, signing_key, create_algo)
-  end
-
   def canonicalize(method, path, query_parts, body, headers, headers_to_sign)
     [
       method.upcase,
@@ -144,7 +135,7 @@ class Escher
       canonicalize_headers(headers, @auth_header_name).join("\n"),
       '',
       headers_to_sign.uniq.join(';'),
-      request_body_hash(body, @hash_algo)
+      request_body_hash(body)
     ].join "\n"
   end
 
@@ -162,7 +153,7 @@ class Escher
 
   def get_string_to_sign(canonicalized_req)
     [
-      algo_id(@vendor_prefix, @hash_algo),
+      get_algo_id,
       long_date(@current_time),
       short_date(@current_time) + '/' + @credential_scope,
       create_algo.new.hexdigest(canonicalized_req)
@@ -188,9 +179,12 @@ class Escher
     date.utc.strftime('%Y%m%d')
   end
 
-  # TODO: no need to pass params
-  def algo_id(prefix, algo)
-    prefix + '-HMAC-' + algo
+  def is_date_within_range?(date)
+    (@current_time - 900 .. @current_time + 900).cover?(date)
+  end
+
+  def get_algo_id
+    @vendor_prefix + '-HMAC-' + @hash_algo
   end
 
   def calculate_signing_key(api_secret)
@@ -226,7 +220,7 @@ class Escher
     headers
   end
 
-  def request_body_hash(body, algo)
+  def request_body_hash(body)
     create_algo.new.hexdigest(body)
   end
 
