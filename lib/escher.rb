@@ -65,19 +65,26 @@ class Escher
     headers_to_sign = ['host']
     body = 'UNSIGNED-PAYLOAD'
     query_parts += get_signing_params(client, expires, headers_to_sign)
-    signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
 
-    query_parts_with_signature = (query_parts.map { |k, v| [k, URI_encode(v)] } << query_pair('Signature', signature, @vendor_prefix))
+    signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
+    query_parts_with_signature = (query_parts.map { |k, v| [k, URI_encode(v)] } << query_pair('Signature', signature))
+
     protocol + '://' + host + path + '?' + query_parts_with_signature.map { |k, v| k + '=' + v }.join('&')
   end
 
   def validate_signed_url(presigned_url, client)
-    puts URI.parse(presigned_url)
-    protocol = request.protocol
-    host = request.host
-    request_uri = request.uri
-    path, query_parts = parse_uri(request_uri)
-    signed_params, query_parts = extract_signing_params
+    uri = URI.parse(presigned_url)
+    protocol = uri.scheme
+    host = uri.host
+    path = uri.path
+    query_parts = parse_query(uri.query)
+    headers = [['host', host]]
+    headers_to_sign = ['host']
+    body = 'UNSIGNED-PAYLOAD'
+    signature, signing_params, query_parts = extract_signing_params(query_parts)
+
+    expected_signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
+    signature == expected_signature
   end
 
   def get_signing_params(client, expires, headers_to_sign)
@@ -87,15 +94,39 @@ class Escher
         ['Date', long_date(@current_time)],
         ['Expires', expires.to_s],
         ['SignedHeaders', headers_to_sign.join(';')],
-    ].map { |k, v| query_pair(k, v, @vendor_prefix) }
+    ].map { |k, v| query_pair(k, v) }
   end
 
-  def query_pair(k, v, vendor_prefix)
-    ["X-#{vendor_prefix}-#{k}", URI::encode(v)]
+  def extract_signing_params(query_parts)
+    signature = nil
+    signing_params = {}
+    query_parts_filtered = []
+    headers = ['algorithm', 'credentials', 'date', 'expires', 'signedheaders']
+    query_parts.each { |k, v|
+      knorm = query_key_truncate(k.downcase)
+      v = URI_decode(v)
+      if knorm == 'signature'
+        signature = v
+      else
+        if headers.include?(knorm)
+          signing_params[knorm] = v
+        end
+        query_parts_filtered += [[k, v]]
+      end
+    }
+    [signature, signing_params, query_parts_filtered]
   end
 
-  def query_key_for(key, vendor_prefix)
-    "X-#{vendor_prefix}-#{key}"
+  def query_pair(k, v)
+    [query_key_for(k), URI::encode(v)]
+  end
+
+  def query_key_for(key)
+    "X-#{@vendor_prefix}-#{key}"
+  end
+
+  def query_key_truncate(key)
+    key[@vendor_prefix.length + 3..-1]
   end
 
   def get_header(header_name, headers)
@@ -241,5 +272,9 @@ class Escher
 
   def URI_encode(component)
     Addressable::URI.encode_component(component, Addressable::URI::CharacterClasses::UNRESERVED)
+  end
+
+  def URI_decode(component)
+    Addressable::URI.unencode_component(component)
   end
 end
