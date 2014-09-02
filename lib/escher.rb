@@ -44,7 +44,7 @@ class Escher
 
     api_secret = key_db[api_key_id]
 
-    path, query_parts = parse_uri request_uri
+    path, query_parts = parse_uri(request_uri)
     expected_signature = escher.generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
     raise EscherError, 'The signatures do not match' unless signature == expected_signature
   end
