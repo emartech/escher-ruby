@@ -55,7 +55,7 @@ class Escher
     headers = add_defaults_to(headers, host, @current_time.utc.rfc2822)
     headers_to_sign |= [@date_header_name.downcase, 'host']
     signature = generate_signature(client[:api_secret], body, headers, method, headers_to_sign, path, query_parts)
-    "#{get_algo_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{headers_to_sign.uniq.join ';'}, Signature=#{signature}"
+    "#{get_algorithm_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{headers_to_sign.uniq.join ';'}, Signature=#{signature}"
   end
 
   # TODO: remove host
@@ -74,7 +74,6 @@ class Escher
 
   def validate_signed_url(presigned_url, client)
     uri = URI.parse(presigned_url)
-    protocol = uri.scheme
     host = uri.host
     path = uri.path
     query_parts = parse_query(uri.query)
@@ -84,25 +83,28 @@ class Escher
     signature, signing_params, query_parts = extract_signing_params(query_parts)
 
     client_api_key_id, short_date, credential_scope = signing_params['credentials'].split('/', 3)
-    signed_headers = signing_params['signedheaders'].split(';')
+    signed_headers = signing_params['signedheaders']
     date = Time.parse(signing_params['date'])
     expires = signing_params['expires'].to_i
+    algorithm = process_algorithm_id(signing_params['algorithm'])
 
-    raise EscherError, 'Host header is not signed' unless signed_headers.include? 'host'
-    # raise EscherError, 'Date header is not signed' unless signed_headers.include? @date_header_name.downcase
-    raise EscherError, 'Invalid request date' unless short_date(date) == short_date && is_date_not_expired?(date, expires)
-    # TODO validate host header
+    raise EscherError, 'Invalid API key' unless client_api_key_id == client[:api_key_id]
+    raise EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed' unless ['sha256', 'sha512'].include?(algorithm)
+    raise EscherError, 'The host header is not signed' unless signed_headers.split(';').include? 'host'
+    raise EscherError, 'Only the host header should be signed' unless signed_headers == 'host'
+    raise EscherError, 'The credential date does not match with the request date' unless short_date(date) == short_date
+    raise EscherError, 'The request date is not within the accepted time range' unless is_date_not_expired?(date, expires)
     raise EscherError, 'Invalid credentials' unless credential_scope == @credential_scope
 
     expected_signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
     raise EscherError, 'The signatures do not match' unless signature == expected_signature
 
-    return true
+    true
   end
 
   def get_signing_params(client, expires, headers_to_sign)
     [
-        ['Algorithm', get_algo_id],
+        ['Algorithm', get_algorithm_id],
         ['Credentials', "#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}"],
         ['Date', long_date(@current_time)],
         ['Expires', expires.to_s],
@@ -206,7 +208,7 @@ class Escher
 
   def get_string_to_sign(canonicalized_req)
     [
-      get_algo_id,
+      get_algorithm_id,
       long_date(@current_time),
       short_date(@current_time) + '/' + @credential_scope,
       create_algo.new.hexdigest(canonicalized_req)
@@ -241,8 +243,13 @@ class Escher
     (@current_time .. @current_time + expires).cover?(date)
   end
 
-  def get_algo_id
+  def get_algorithm_id
     @vendor_prefix + '-HMAC-' + @hash_algo
+  end
+
+  def process_algorithm_id(algorithm)
+    m = /^#{@vendor_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+)$/.match(algorithm)
+    m && m['algo'].downcase
   end
 
   def calculate_signing_key(api_secret)
