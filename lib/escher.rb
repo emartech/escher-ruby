@@ -58,9 +58,13 @@ class Escher
     "#{get_algorithm_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{headers_to_sign.uniq.join ';'}, Signature=#{signature}"
   end
 
-  # TODO: remove host
-  def generate_signed_url(client, protocol, host, request_uri, expires = 86400)
-    path, query_parts = parse_uri(request_uri)
+  def generate_signed_url(url_to_sign, client, expires = 86400)
+    uri = URI.parse(url_to_sign)
+    protocol = uri.scheme
+    host = uri.host
+    path = uri.path
+    query_parts = parse_query(uri.query)
+
     headers = [['host', host]]
     headers_to_sign = ['host']
     body = 'UNSIGNED-PAYLOAD'
@@ -72,6 +76,7 @@ class Escher
     protocol + '://' + host + path + '?' + query_parts_with_signature.map { |k, v| k + '=' + v }.join('&')
   end
 
+  # TODO: rename to validate_presigned_url
   def validate_signed_url(presigned_url, client)
     uri = URI.parse(presigned_url)
     host = uri.host

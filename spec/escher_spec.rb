@@ -103,7 +103,7 @@ describe 'Escher' do
             'X-EMS-Signature=fbc9dbb91670e84d04ad2ae7505f4f52ab3ff9e192b8233feeae57e9022c2b67'
 
     client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
-    expect(escher.generate_signed_url(client, 'http', 'example.com', '/something?foo=bar&baz=barbaz', 123456)).to eq expected_url
+    expect(escher.generate_signed_url('http://example.com/something?foo=bar&baz=barbaz', client, 123456)).to eq expected_url
   end
 
   it 'should validate presigned url' do
