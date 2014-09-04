@@ -42,12 +42,12 @@ test_suites = {
 }
 
 ESCHER_AWS4_OPTIONS = {
-  vendor_prefix: 'AWS4', hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date',
+  algo_prefix: 'AWS4', vendor_key: 'Amz', hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date',
   credential_scope: 'us-east-1/host/aws4_request'
 }
 
 ESCHER_EMARSYS_OPTIONS = {
-  vendor_prefix: 'EMS', hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date',
+  algo_prefix: 'EMS', vendor_key: 'EMS', hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date',
   credential_scope: 'us-east-1/host/aws4_request'
 }
 

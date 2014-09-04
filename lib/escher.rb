@@ -12,7 +12,8 @@ end
 class Escher
 
   def initialize(options)
-    @vendor_prefix    = options[:vendor_prefix]    || 'Escher'
+    @algo_prefix      = options[:algo_prefix]      || 'Escher'
+    @vendor_key       = options[:vendor_key]       || 'Escher'
     @hash_algo        = options[:hash_algo]        || 'SHA256'
     @current_time     = options[:current_time]     || Time.now
     @credential_scope = options[:credential_scope] || 'us-east-1/host/aws4_request'
@@ -27,7 +28,8 @@ class Escher
     algo, api_key_id, short_date, credential_scope, signed_headers, signature = parse_auth_header(auth_header)
 
     escher = Escher.new(
-      vendor_prefix: @vendor_prefix,
+      algo_prefix: @algo_prefix,
+      vendor_key: @vendor_key,
       hash_algo: algo,
       auth_header_name: @auth_header_name,
       date_header_name: @date_header_name,
@@ -141,11 +143,11 @@ class Escher
   end
 
   def query_key_for(key)
-    "X-#{@vendor_prefix}-#{key}"
+    "X-#{@vendor_key}-#{key}"
   end
 
   def query_key_truncate(key)
-    key[@vendor_prefix.length + 3..-1]
+    key[@vendor_key.length + 3..-1]
   end
 
   def get_header(header_name, headers)
@@ -155,7 +157,7 @@ class Escher
   end
 
   def parse_auth_header(auth_header)
-    m = /#{@vendor_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+) Credential=(?<api_key_id>[A-Za-z0-9\-_]+)\/(?<short_date>[0-9]{8})\/(?<credentials>[A-Za-z0-9\-_\/]+), SignedHeaders=(?<signed_headers>[A-Za-z\-;]+), Signature=(?<signature>[0-9a-f]+)$/
+    m = /#{@algo_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+) Credential=(?<api_key_id>[A-Za-z0-9\-_]+)\/(?<short_date>[0-9]{8})\/(?<credentials>[A-Za-z0-9\-_\/]+), SignedHeaders=(?<signed_headers>[A-Za-z\-;]+), Signature=(?<signature>[0-9a-f]+)$/
     .match auth_header
     raise EscherError, 'Malformed authorization header' unless m && m['credentials']
     [
@@ -251,17 +253,17 @@ class Escher
   end
 
   def get_algorithm_id
-    @vendor_prefix + '-HMAC-' + @hash_algo
+    @algo_prefix + '-HMAC-' + @hash_algo
   end
 
   def process_algorithm_id(algorithm)
-    m = /^#{@vendor_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+)$/.match(algorithm)
+    m = /^#{@algo_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+)$/.match(algorithm)
     m && m['algo'].downcase
   end
 
   def calculate_signing_key(api_secret)
     algo = create_algo
-    signing_key = @vendor_prefix + api_secret
+    signing_key = @algo_prefix + api_secret
     key_parts = [short_date(@current_time)] + @credential_scope.split('/')
     key_parts.each { |data|
       signing_key = Digest::HMAC.digest(data, signing_key, algo)
