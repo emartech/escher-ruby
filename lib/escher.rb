@@ -94,7 +94,7 @@ class Escher
     algorithm = process_algorithm_id(signing_params['algorithm'])
 
     raise EscherError, 'Invalid API key' unless client_api_key_id == client[:api_key_id]
-    raise EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed' unless ['sha256', 'sha512'].include?(algorithm)
+    raise EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed' unless %w(sha256 sha512).include?(algorithm)
     raise EscherError, 'The host header is not signed' unless signed_headers.split(';').include? 'host'
     raise EscherError, 'Only the host header should be signed' unless signed_headers == 'host'
     raise EscherError, 'The credential date does not match with the request date' unless short_date(date) == short_date
@@ -121,7 +121,7 @@ class Escher
     signature = nil
     signing_params = {}
     query_parts_filtered = []
-    headers = ['algorithm', 'credentials', 'date', 'expires', 'signedheaders']
+    headers = %w(algorithm credentials date expires signedheaders)
     query_parts.each { |k, v|
       knorm = query_key_truncate(k.downcase)
       v = uri_decode(v)
@@ -169,7 +169,6 @@ class Escher
     ]
   end
 
-  # TODO: remove unused params
   def generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
     canonicalized_request = canonicalize(method, path, query_parts, body, headers, signed_headers.uniq)
     string_to_sign = get_string_to_sign(canonicalized_request)
@@ -183,7 +182,7 @@ class Escher
   end
 
   def add_if_missing(headers, header_to_find, value)
-    headers += [header_to_find, value] unless headers.find { |header| k, v = header; k.downcase == header_to_find.downcase }
+    headers += [header_to_find, value] unless headers.find { |header| header[0].downcase == header_to_find.downcase }
     headers
   end
 
