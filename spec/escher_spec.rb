@@ -241,7 +241,7 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-INVALID Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Unidentified hash algorithm')
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed')
   end
 
   it 'should check credential scope' do

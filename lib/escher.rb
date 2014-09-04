@@ -25,27 +25,30 @@ class Escher
     date = Time.parse(get_header(@date_header_name, headers))
     auth_header = get_header(@auth_header_name, headers)
 
-    algo, api_key_id, short_date, credential_scope, signed_headers, signature = parse_auth_header(auth_header)
+    algorithm, api_key_id, short_date, credential_scope, signed_headers, signature = parse_auth_header(auth_header)
 
-    escher = Escher.new(
-      credential_scope,
-      algo_prefix: @algo_prefix,
-      vendor_key: @vendor_key,
-      hash_algo: algo,
-      auth_header_name: @auth_header_name,
-      date_header_name: @date_header_name,
-      current_time: date
-    )
     api_secret = key_db[api_key_id]
 
     get_header('host', headers) # validate host
+    raise EscherError, 'Invalid API key' unless api_secret
+    raise EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed' unless %w(SHA256 SHA512).include?(algorithm)
     raise EscherError, 'Host header is not signed' unless signed_headers.include? 'host'
     raise EscherError, 'Date header is not signed' unless signed_headers.include? @date_header_name.downcase
     raise EscherError, 'Invalid request date' unless short_date(date) == short_date && is_date_within_range?(date)
     raise EscherError, 'Invalid credentials' unless credential_scope == @credential_scope
-    raise EscherError, 'Invalid API key' unless api_secret
 
     path, query_parts = parse_uri(request_uri)
+
+    escher = Escher.new(
+        credential_scope,
+        algo_prefix: @algo_prefix,
+        vendor_key: @vendor_key,
+        hash_algo: algorithm,
+        auth_header_name: @auth_header_name,
+        date_header_name: @date_header_name,
+        current_time: date
+    )
+
     expected_signature = escher.generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
     raise EscherError, 'The signatures do not match' unless signature == expected_signature
   end
@@ -62,21 +65,31 @@ class Escher
     signature, signing_params, query_parts = extract_signing_params(query_parts)
 
     api_key_id, short_date, credential_scope = signing_params['credentials'].split('/', 3)
-    signed_headers = signing_params['signedheaders']
+    signed_headers = signing_params['signedheaders'].split ';'
     date = Time.parse(signing_params['date'])
     expires = signing_params['expires'].to_i
     algorithm = process_algorithm_id(signing_params['algorithm'])
     api_secret = key_db[api_key_id]
 
     raise EscherError, 'Invalid API key' unless api_secret
-    raise EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed' unless %w(sha256 sha512).include?(algorithm)
-    raise EscherError, 'The host header is not signed' unless signed_headers.split(';').include? 'host'
-    raise EscherError, 'Only the host header should be signed' unless signed_headers == 'host'
+    raise EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed' unless %w(SHA256 SHA512).include?(algorithm)
+    raise EscherError, 'The host header is not signed' unless signed_headers.include? 'host'
+    raise EscherError, 'Only the host header should be signed' unless signed_headers == ['host']
     raise EscherError, 'The credential date does not match with the request date' unless short_date(date) == short_date
     raise EscherError, 'The request date is not within the accepted time range' unless is_date_not_expired?(date, expires)
     raise EscherError, 'Invalid credentials' unless credential_scope == @credential_scope
 
-    expected_signature = generate_signature(api_secret, body, headers, 'GET', headers_to_sign, path, query_parts)
+    escher = Escher.new(
+        credential_scope,
+        algo_prefix: @algo_prefix,
+        vendor_key: @vendor_key,
+        hash_algo: algorithm,
+        auth_header_name: @auth_header_name,
+        date_header_name: @date_header_name,
+        current_time: date
+    )
+
+    expected_signature = escher.generate_signature(api_secret, body, headers, 'GET', signed_headers, path, query_parts)
     raise EscherError, 'The signatures do not match' unless signature == expected_signature
   end
 
@@ -160,7 +173,7 @@ class Escher
     .match auth_header
     raise EscherError, 'Malformed authorization header' unless m && m['credentials']
     [
-        m['algo'],
+        m['algo'].upcase,
         m['api_key_id'],
         m['short_date'],
         m['credentials'],
@@ -194,7 +207,7 @@ class Escher
       canonicalize_headers(headers).join("\n"),
       '',
       prepare_headers_to_sign(headers_to_sign),
-      request_body_hash(body)
+      create_algo.new.hexdigest(body)
     ].join "\n"
   end
 
@@ -257,7 +270,7 @@ class Escher
 
   def process_algorithm_id(algorithm)
     m = /^#{@algo_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+)$/.match(algorithm)
-    m && m['algo'].downcase
+    m && m['algo'].upcase
   end
 
   def calculate_signing_key(api_secret)
@@ -300,10 +313,6 @@ class Escher
       end
     end
     headers
-  end
-
-  def request_body_hash(body)
-    create_algo.new.hexdigest(body)
   end
 
   def canonicalize_query(query_parts)
