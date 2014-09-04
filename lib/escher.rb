@@ -55,7 +55,7 @@ class Escher
     headers = add_defaults_to(headers, host, @current_time.utc.rfc2822)
     headers_to_sign |= [@date_header_name.downcase, 'host']
     signature = generate_signature(client[:api_secret], body, headers, method, headers_to_sign, path, query_parts)
-    "#{get_algorithm_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{headers_to_sign.uniq.join ';'}, Signature=#{signature}"
+    "#{get_algorithm_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{prepare_headers_to_sign headers_to_sign}, Signature=#{signature}"
   end
 
   def generate_signed_url(url_to_sign, client, expires = 86400)
@@ -194,9 +194,13 @@ class Escher
       canonicalize_query(query_parts),
       canonicalize_headers(headers, @auth_header_name).join("\n"),
       '',
-      headers_to_sign.uniq.join(';'),
+      prepare_headers_to_sign(headers_to_sign),
       request_body_hash(body)
     ].join "\n"
+  end
+
+  def prepare_headers_to_sign(headers_to_sign)
+    headers_to_sign.sort.uniq.join(';')
   end
 
   def parse_uri(request_uri)
@@ -273,7 +277,14 @@ class Escher
   def canonicalize_headers(raw_headers, auth_header_name)
     collect_headers(raw_headers, @auth_header_name)
       .sort
-      .map { |k, v| k + ':' + (v.sort_by { |x| x }).join(',').gsub(/\s+/, ' ').strip }
+      .map { |k, v| k + ':' + v.map { |piece| normalize_white_spaces piece} .join(',') }
+  end
+
+  def normalize_white_spaces(value)
+    value.strip.split('"', -1).map.with_index { |piece, index|
+      is_inside_of_quotes = (index % 2 === 1)
+      is_inside_of_quotes ? piece : piece.gsub(/\s+/, ' ')
+    }.join '"'
   end
 
   def collect_headers(raw_headers, auth_header_name)
