@@ -42,13 +42,11 @@ test_suites = {
 }
 
 ESCHER_AWS4_OPTIONS = {
-  algo_prefix: 'AWS4', vendor_key: 'Amz', hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date',
-  credential_scope: 'us-east-1/host/aws4_request'
+  algo_prefix: 'AWS4', vendor_key: 'Amz', hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date'
 }
 
 ESCHER_EMARSYS_OPTIONS = {
-  algo_prefix: 'EMS', vendor_key: 'EMS', hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date',
-  credential_scope: 'us-east-1/host/aws4_request'
+  algo_prefix: 'EMS', vendor_key: 'EMS', hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date'
 }
 
 GOOD_AUTH_HEADER = 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'
@@ -70,7 +68,7 @@ describe 'Escher' do
   test_suites.each do |suite, tests|
     tests.each do |test|
       it "should calculate canonicalized request for #{test} in #{suite}" do
-        escher = Escher.new(ESCHER_AWS4_OPTIONS)
+        escher = Escher.new('us-east-1/host/aws4_request', ESCHER_AWS4_OPTIONS)
         method, request_uri, body, headers = read_request(suite, test)
         headers_to_sign = headers.map {|k| k[0].downcase }
         path, query_parts = escher.parse_uri(request_uri)
@@ -84,7 +82,7 @@ describe 'Escher' do
     tests.each do |test|
       it "should calculate string to sign for #{test} in #{suite}" do
         method, request_uri, body, headers, date = read_request(suite, test)
-        escher = Escher.new(ESCHER_AWS4_OPTIONS.merge(current_time: Time.parse(date)))
+        escher = Escher.new('us-east-1/host/aws4_request', ESCHER_AWS4_OPTIONS.merge(current_time: Time.parse(date)))
         headers_to_sign = headers.map {|k| k[0].downcase }
         path, query_parts = escher.parse_uri(request_uri)
         canonicalized_request = escher.canonicalize(method, path, query_parts, body, headers, headers_to_sign)
@@ -98,7 +96,7 @@ describe 'Escher' do
     tests.each do |test|
       it "should calculate auth header for #{test} in #{suite}" do
         method, request_uri, body, headers, date, host = read_request(suite, test)
-        escher = Escher.new(ESCHER_AWS4_OPTIONS.merge(current_time: Time.parse(date)))
+        escher = Escher.new('us-east-1/host/aws4_request', ESCHER_AWS4_OPTIONS.merge(current_time: Time.parse(date)))
         headers_to_sign = headers.map {|k| k[0].downcase }
         auth_header = escher.generate_auth_header(client, method, host, request_uri, body, headers, headers_to_sign)
         expect(auth_header).to eq(fixture(suite, test, 'authz'))
@@ -107,7 +105,7 @@ describe 'Escher' do
   end
 
   it 'should generate presigned url' do
-    escher = Escher.new(ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('2011/05/11 12:00:00 UTC')))
+    escher = Escher.new('us-east-1/host/aws4_request', ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('2011/05/11 12:00:00 UTC')))
     expected_url =
         'http://example.com/something?foo=bar&' + 'baz=barbaz&' +
             'X-EMS-Algorithm=EMS-HMAC-SHA256&' +
@@ -122,7 +120,7 @@ describe 'Escher' do
   end
 
   it 'should validate presigned url' do
-    escher = Escher.new(ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('2011/05/11 12:00:00 UTC')))
+    escher = Escher.new('us-east-1/host/aws4_request', ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('2011/05/11 12:00:00 UTC')))
     presigned_url =
       'http://example.com/something?foo=bar&' + 'baz=barbaz&' +
         'X-EMS-Algorithm=EMS-HMAC-SHA256&' +
@@ -253,7 +251,7 @@ describe 'Escher' do
   end
 
   def call_validate_request(headers)
-    escher = Escher.new(ESCHER_AWS4_OPTIONS.merge(current_time: Time.parse('Mon, 09 Sep 2011 23:40:00 GMT')))
+    escher = Escher.new('us-east-1/host/aws4_request', ESCHER_AWS4_OPTIONS.merge(current_time: Time.parse('Mon, 09 Sep 2011 23:40:00 GMT')))
     escher.validate_request('GET', '/', '', headers, key_db)
   end
 

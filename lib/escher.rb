@@ -11,12 +11,12 @@ end
 
 class Escher
 
-  def initialize(options)
+  def initialize(credential_scope, options)
+    @credential_scope = credential_scope
     @algo_prefix      = options[:algo_prefix]      || 'Escher'
     @vendor_key       = options[:vendor_key]       || 'Escher'
     @hash_algo        = options[:hash_algo]        || 'SHA256'
     @current_time     = options[:current_time]     || Time.now
-    @credential_scope = options[:credential_scope] || 'us-east-1/host/aws4_request'
     @auth_header_name = options[:auth_header_name] || 'X-Escher-Auth'
     @date_header_name = options[:date_header_name] || 'X-Escher-Date'
   end
@@ -28,13 +28,13 @@ class Escher
     algo, api_key_id, short_date, credential_scope, signed_headers, signature = parse_auth_header(auth_header)
 
     escher = Escher.new(
+      credential_scope,
       algo_prefix: @algo_prefix,
       vendor_key: @vendor_key,
       hash_algo: algo,
       auth_header_name: @auth_header_name,
       date_header_name: @date_header_name,
-      credential_scope: credential_scope,
-      current_time: date,
+      current_time: date
     )
 
     get_header('host', headers) # validate host
