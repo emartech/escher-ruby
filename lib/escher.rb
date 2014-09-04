@@ -36,14 +36,14 @@ class Escher
       date_header_name: @date_header_name,
       current_time: date
     )
+    api_secret = key_db[api_key_id]
 
     get_header('host', headers) # validate host
     raise EscherError, 'Host header is not signed' unless signed_headers.include? 'host'
     raise EscherError, 'Date header is not signed' unless signed_headers.include? @date_header_name.downcase
     raise EscherError, 'Invalid request date' unless short_date(date) == short_date && is_date_within_range?(date)
     raise EscherError, 'Invalid credentials' unless credential_scope == @credential_scope
-
-    api_secret = key_db[api_key_id]
+    raise EscherError, 'Invalid API key' unless api_secret
 
     path, query_parts = parse_uri(request_uri)
     expected_signature = escher.generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
@@ -51,7 +51,7 @@ class Escher
   end
 
   # TODO: rename to validate_presigned_url
-  def validate_signed_url(presigned_url, client)
+  def validate_signed_url(presigned_url, key_db)
     uri = URI.parse(presigned_url)
     host = uri.host
     path = uri.path
@@ -61,13 +61,14 @@ class Escher
     body = 'UNSIGNED-PAYLOAD'
     signature, signing_params, query_parts = extract_signing_params(query_parts)
 
-    client_api_key_id, short_date, credential_scope = signing_params['credentials'].split('/', 3)
+    api_key_id, short_date, credential_scope = signing_params['credentials'].split('/', 3)
     signed_headers = signing_params['signedheaders']
     date = Time.parse(signing_params['date'])
     expires = signing_params['expires'].to_i
     algorithm = process_algorithm_id(signing_params['algorithm'])
+    api_secret = key_db[api_key_id]
 
-    raise EscherError, 'Invalid API key' unless client_api_key_id == client[:api_key_id]
+    raise EscherError, 'Invalid API key' unless api_secret
     raise EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed' unless %w(sha256 sha512).include?(algorithm)
     raise EscherError, 'The host header is not signed' unless signed_headers.split(';').include? 'host'
     raise EscherError, 'Only the host header should be signed' unless signed_headers == 'host'
@@ -75,7 +76,7 @@ class Escher
     raise EscherError, 'The request date is not within the accepted time range' unless is_date_not_expired?(date, expires)
     raise EscherError, 'Invalid credentials' unless credential_scope == @credential_scope
 
-    expected_signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
+    expected_signature = generate_signature(api_secret, body, headers, 'GET', headers_to_sign, path, query_parts)
     raise EscherError, 'The signatures do not match' unless signature == expected_signature
   end
 

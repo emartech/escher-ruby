@@ -53,7 +53,10 @@ GOOD_AUTH_HEADER = 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/h
 
 # noinspection RubyStringKeysInHashInspection
 def key_db
-  {'AKIDEXAMPLE' => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'}
+  {
+      'AKIDEXAMPLE' => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY',
+      'th3K3y'      => 'very_secure',
+  }
 end
 
 def credential_scope
@@ -131,7 +134,7 @@ describe 'Escher' do
         'X-EMS-Signature=fbc9dbb91670e84d04ad2ae7505f4f52ab3ff9e192b8233feeae57e9022c2b67'
 
     client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
-    expect { escher.validate_signed_url(presigned_url, client) }.not_to raise_error
+    expect { escher.validate_signed_url(presigned_url, key_db) }.not_to raise_error
   end
 
   it 'should validate request' do
