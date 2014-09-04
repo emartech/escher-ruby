@@ -224,12 +224,12 @@ class Escher
     ].join("\n")
   end
 
-  def create_algo()
+  def create_algo
     case @hash_algo.upcase
       when 'SHA256'
-        return Digest::SHA256
+        return Digest::SHA2.new 256
       when 'SHA512'
-        return Digest::SHA512
+        return Digest::SHA2.new 512
       else
         raise EscherError, 'Unidentified hash algorithm'
     end
