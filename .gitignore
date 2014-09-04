@@ -13,3 +13,4 @@ Gemfile.lock
 
 .env
 .ruby-version
+.rbenv-version
