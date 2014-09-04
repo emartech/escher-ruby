@@ -1,4 +1,4 @@
-require "escher/version"
+require 'escher/version'
 
 require 'time'
 require 'uri'
@@ -14,14 +14,13 @@ class Escher
   def initialize(options)
     @vendor_prefix    = options[:vendor_prefix]    || 'Escher'
     @hash_algo        = options[:hash_algo]        || 'SHA256'
-    @current_time     = options[:current_time]     || Time.now()
+    @current_time     = options[:current_time]     || Time.now
     @credential_scope = options[:credential_scope] || 'us-east-1/host/aws4_request'
     @auth_header_name = options[:auth_header_name] || 'X-Escher-Auth'
     @date_header_name = options[:date_header_name] || 'X-Escher-Date'
   end
 
   def validate_request(method, request_uri, body, headers, key_db)
-    host = get_header('host', headers) # TODO: Indirect validation if the host header is missing
     date = Time.parse(get_header(@date_header_name, headers))
     auth_header = get_header(@auth_header_name, headers)
 
@@ -36,10 +35,10 @@ class Escher
       current_time: date,
     )
 
+    get_header('host', headers) # validate host
     raise EscherError, 'Host header is not signed' unless signed_headers.include? 'host'
     raise EscherError, 'Date header is not signed' unless signed_headers.include? @date_header_name.downcase
     raise EscherError, 'Invalid request date' unless short_date(date) == short_date && is_date_within_range?(date)
-    # TODO validate host header
     raise EscherError, 'Invalid credentials' unless credential_scope == @credential_scope
 
     api_secret = key_db[api_key_id]
