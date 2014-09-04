@@ -192,7 +192,7 @@ class Escher
       method.upcase,
       canonicalize_path(path),
       canonicalize_query(query_parts),
-      canonicalize_headers(headers, @auth_header_name).join("\n"),
+      canonicalize_headers(headers).join("\n"),
       '',
       prepare_headers_to_sign(headers_to_sign),
       request_body_hash(body)
@@ -274,8 +274,8 @@ class Escher
     path.gsub(%r{/\./}, '/').sub(%r{/\.\z}, '/').gsub(/\/+/, '/')
   end
 
-  def canonicalize_headers(raw_headers, auth_header_name)
-    collect_headers(raw_headers, @auth_header_name)
+  def canonicalize_headers(raw_headers)
+    collect_headers(raw_headers)
       .sort
       .map { |k, v| k + ':' + v.map { |piece| normalize_white_spaces piece} .join(',') }
   end
@@ -287,7 +287,7 @@ class Escher
     }.join '"'
   end
 
-  def collect_headers(raw_headers, auth_header_name)
+  def collect_headers(raw_headers)
     headers = {}
     raw_headers.each do |raw_header|
       if raw_header[0].downcase != @auth_header_name.downcase
