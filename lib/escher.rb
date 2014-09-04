@@ -50,33 +50,6 @@ class Escher
     raise EscherError, 'The signatures do not match' unless signature == expected_signature
   end
 
-  # TODO: do we really need host here?
-  def generate_auth_header(client, method, host, request_uri, body, headers, headers_to_sign)
-    path, query_parts = parse_uri(request_uri)
-    headers = add_defaults_to(headers, host, @current_time.utc.rfc2822)
-    headers_to_sign |= [@date_header_name.downcase, 'host']
-    signature = generate_signature(client[:api_secret], body, headers, method, headers_to_sign, path, query_parts)
-    "#{get_algorithm_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{prepare_headers_to_sign headers_to_sign}, Signature=#{signature}"
-  end
-
-  def generate_signed_url(url_to_sign, client, expires = 86400)
-    uri = URI.parse(url_to_sign)
-    protocol = uri.scheme
-    host = uri.host
-    path = uri.path
-    query_parts = parse_query(uri.query)
-
-    headers = [['host', host]]
-    headers_to_sign = ['host']
-    body = 'UNSIGNED-PAYLOAD'
-    query_parts += get_signing_params(client, expires, headers_to_sign)
-
-    signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
-    query_parts_with_signature = (query_parts.map { |k, v| [k, uri_encode(v)] } << query_pair('Signature', signature))
-
-    protocol + '://' + host + path + '?' + query_parts_with_signature.map { |k, v| k + '=' + v }.join('&')
-  end
-
   # TODO: rename to validate_presigned_url
   def validate_signed_url(presigned_url, client)
     uri = URI.parse(presigned_url)
@@ -106,6 +79,33 @@ class Escher
     raise EscherError, 'The signatures do not match' unless signature == expected_signature
 
     true
+  end
+
+  # TODO: do we really need host here?
+  def generate_auth_header(client, method, host, request_uri, body, headers, headers_to_sign)
+    path, query_parts = parse_uri(request_uri)
+    headers = add_defaults_to(headers, host, @current_time.utc.rfc2822)
+    headers_to_sign |= [@date_header_name.downcase, 'host']
+    signature = generate_signature(client[:api_secret], body, headers, method, headers_to_sign, path, query_parts)
+    "#{get_algorithm_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{prepare_headers_to_sign headers_to_sign}, Signature=#{signature}"
+  end
+
+  def generate_signed_url(url_to_sign, client, expires = 86400)
+    uri = URI.parse(url_to_sign)
+    protocol = uri.scheme
+    host = uri.host
+    path = uri.path
+    query_parts = parse_query(uri.query)
+
+    headers = [['host', host]]
+    headers_to_sign = ['host']
+    body = 'UNSIGNED-PAYLOAD'
+    query_parts += get_signing_params(client, expires, headers_to_sign)
+
+    signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
+    query_parts_with_signature = (query_parts.map { |k, v| [k, uri_encode(v)] } << query_pair('Signature', signature))
+
+    protocol + '://' + host + path + '?' + query_parts_with_signature.map { |k, v| k + '=' + v }.join('&')
   end
 
   def get_signing_params(client, expires, headers_to_sign)
