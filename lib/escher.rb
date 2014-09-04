@@ -60,7 +60,6 @@ class Escher
     path = uri.path
     query_parts = parse_query(uri.query)
     headers = [['host', host]]
-    headers_to_sign = ['host']
     body = 'UNSIGNED-PAYLOAD'
     signature, signing_params, query_parts = extract_signing_params(query_parts)
 
