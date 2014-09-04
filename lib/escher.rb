@@ -71,7 +71,7 @@ class Escher
     query_parts += get_signing_params(client, expires, headers_to_sign)
 
     signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
-    query_parts_with_signature = (query_parts.map { |k, v| [k, URI_encode(v)] } << query_pair('Signature', signature))
+    query_parts_with_signature = (query_parts.map { |k, v| [k, uri_encode(v)] } << query_pair('Signature', signature))
 
     protocol + '://' + host + path + '?' + query_parts_with_signature.map { |k, v| k + '=' + v }.join('&')
   end
@@ -124,7 +124,7 @@ class Escher
     headers = ['algorithm', 'credentials', 'date', 'expires', 'signedheaders']
     query_parts.each { |k, v|
       knorm = query_key_truncate(k.downcase)
-      v = URI_decode(v)
+      v = uri_decode(v)
       if knorm == 'signature'
         signature = v
       else
@@ -307,15 +307,15 @@ class Escher
 
   def canonicalize_query(query_parts)
     query_parts
-      .map { |k, v| URI_encode(k.gsub('+', ' ')) + '=' + URI_encode(v || '') }
+      .map { |k, v| uri_encode(k.gsub('+', ' ')) + '=' + uri_encode(v || '') }
       .sort.join '&'
   end
 
-  def URI_encode(component)
+  def uri_encode(component)
     Addressable::URI.encode_component(component, Addressable::URI::CharacterClasses::UNRESERVED)
   end
 
-  def URI_decode(component)
+  def uri_decode(component)
     Addressable::URI.unencode_component(component)
   end
 end
