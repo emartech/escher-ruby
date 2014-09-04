@@ -53,6 +53,7 @@ ESCHER_EMARSYS_OPTIONS = {
 
 GOOD_AUTH_HEADER = 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'
 
+# noinspection RubyStringKeysInHashInspection
 def key_db
   {'AKIDEXAMPLE' => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'}
 end
@@ -137,7 +138,7 @@ describe 'Escher' do
 
   it 'should validate request' do
     headers = [
-        ['Host', 'host.foo.com'],
+        %w(Host host.foo.com),
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', GOOD_AUTH_HEADER],
     ]
@@ -146,7 +147,7 @@ describe 'Escher' do
 
   it 'should detect if signatures do not match' do
     headers = [
-        ['Host', 'host.foo.com'],
+        %w(Host host.foo.com),
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'],
     ]
@@ -156,7 +157,7 @@ describe 'Escher' do
   it 'should detect if dates are not on the same day' do
     yesterday = '08'
     headers = [
-        ['Host', 'host.foo.com'],
+        %w(Host host.foo.com),
         ['Date', "Mon, #{yesterday} Sep 2011 23:36:00 GMT"],
         ['Authorization', GOOD_AUTH_HEADER],
     ]
@@ -166,7 +167,7 @@ describe 'Escher' do
   it 'should detect if date is not within the 15 minutes range' do
     long_ago = '00'
     headers = [
-        ['Host', 'host.foo.com'],
+        %w(Host host.foo.com),
         ['Date', "Mon, 09 Sep 2011 23:#{long_ago}:00 GMT"],
         ['Authorization', GOOD_AUTH_HEADER],
     ]
@@ -175,7 +176,7 @@ describe 'Escher' do
 
   it 'should detect missing host header' do
     headers = [
-        ['Date', "Mon, 09 Sep 2011 23:36:00 GMT"],
+        ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', GOOD_AUTH_HEADER],
     ]
     expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: host')
@@ -183,7 +184,7 @@ describe 'Escher' do
 
   it 'should detect missing date header' do
     headers = [
-        ['Host', 'host.foo.com'],
+        %w(Host host.foo.com),
         ['Authorization', GOOD_AUTH_HEADER],
     ]
     expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: date')
@@ -191,16 +192,16 @@ describe 'Escher' do
 
   it 'should detect missing auth header' do
     headers = [
-        ['Host', 'host.foo.com'],
-        ['Date', "Mon, 09 Sep 2011 23:36:00 GMT"],
+        %w(Host host.foo.com),
+        ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
     ]
     expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: authorization')
   end
 
   it 'should detect malformed auth header' do
     headers = [
-        ['Host', 'host.foo.com'],
-        ['Date', "Mon, 09 Sep 2011 23:36:00 GMT"],
+        %w(Host host.foo.com),
+        ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=UNPARSABLE'],
     ]
     expect { call_validate_request(headers) }.to raise_error(EscherError, 'Malformed authorization header')
@@ -208,8 +209,8 @@ describe 'Escher' do
 
   it 'should detect malformed credential scope' do
     headers = [
-        ['Host', 'host.foo.com'],
-        ['Date', "Mon, 09 Sep 2011 23:36:00 GMT"],
+        %w(Host host.foo.com),
+        ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=BAD-CREDENTIAL-SCOPE, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
     expect { call_validate_request(headers) }.to raise_error(EscherError, 'Malformed authorization header')
@@ -217,7 +218,7 @@ describe 'Escher' do
 
   it 'should check mandatory signed headers: host' do
     headers = [
-        ['Host', 'host.foo.com'],
+        %w(Host host.foo.com),
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
@@ -226,7 +227,7 @@ describe 'Escher' do
 
   it 'should check mandatory signed headers: date' do
     headers = [
-        ['Host', 'host.foo.com'],
+        %w(Host host.foo.com),
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
@@ -235,7 +236,7 @@ describe 'Escher' do
 
   it 'should check algorithm' do
     headers = [
-        ['Host', 'host.foo.com'],
+        %w(Host host.foo.com),
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-INVALID Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
@@ -244,7 +245,7 @@ describe 'Escher' do
 
   it 'should check credential scope' do
     headers = [
-        ['Host', 'host.foo.com'],
+        %w(Host host.foo.com),
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/INVALID/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
@@ -263,11 +264,11 @@ def fixture(suite, test, extension)
 end
 
 def get_host(headers)
-  headers.detect {|header| k, v = header; k.downcase == 'host'}[1]
+  headers.detect {|header| header[0].downcase == 'host'}[1]
 end
 
 def get_date(headers)
-  headers.detect {|header| k, v = header; k.downcase == 'date'}[1]
+  headers.detect {|header| header[0].downcase == 'date'}[1]
 end
 
 def read_request(suite, test, extension = 'req')
@@ -278,6 +279,6 @@ def read_request(suite, test, extension = 'req')
   [method, request_uri, request_body, headers, get_date(headers), get_host(headers)]
 end
 
-def check_canonicalized_request(canonicalized_request, suite, test)
-  expect(canonicalized_request).to eq(fixture(suite, test, 'creq'))
+def check_canonicalized_request(creq, suite, test)
+  expect(creq).to eq(fixture(suite, test, 'creq'))
 end
