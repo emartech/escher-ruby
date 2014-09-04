@@ -262,10 +262,12 @@ class Escher
   end
 
   def calculate_signing_key(api_secret)
+    algo = create_algo
     signing_key = @vendor_prefix + api_secret
-    for data in [short_date(@current_time)] + @credential_scope.split('/') do
-      signing_key = Digest::HMAC.digest(data, signing_key, create_algo)
-    end
+    key_parts = [short_date(@current_time)] + @credential_scope.split('/')
+    key_parts.each { |data|
+      signing_key = Digest::HMAC.digest(data, signing_key, algo)
+    }
     signing_key
   end
 
