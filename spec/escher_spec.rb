@@ -131,7 +131,7 @@ describe 'Escher' do
         'X-EMS-Signature=fbc9dbb91670e84d04ad2ae7505f4f52ab3ff9e192b8233feeae57e9022c2b67'
 
     client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
-    expect(escher.validate_signed_url(presigned_url, client)).to be true
+    expect { escher.validate_signed_url(presigned_url, client) }.not_to raise_error
   end
 
   it 'should validate request' do

@@ -77,8 +77,6 @@ class Escher
 
     expected_signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
     raise EscherError, 'The signatures do not match' unless signature == expected_signature
-
-    true
   end
 
   # TODO: do we really need host here?
