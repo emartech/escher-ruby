@@ -134,7 +134,7 @@ describe 'Escher' do
         'X-EMS-Signature=fbc9dbb91670e84d04ad2ae7505f4f52ab3ff9e192b8233feeae57e9022c2b67'
 
     client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
-    expect { escher.validate_signed_url('example.com', presigned_uri, key_db) }.not_to raise_error
+    expect { escher.validate_signed_url(key_db, 'example.com', presigned_uri) }.not_to raise_error
   end
 
   it 'should validate request' do
@@ -255,7 +255,7 @@ describe 'Escher' do
 
   def call_validate_request(headers)
     escher = Escher.new('us-east-1/host/aws4_request', ESCHER_AWS4_OPTIONS.merge(current_time: Time.parse('Mon, 09 Sep 2011 23:40:00 GMT')))
-    escher.validate_request('GET', '/', '', headers, key_db)
+    escher.validate_request(key_db, 'GET', '/', '', headers)
   end
 
 end

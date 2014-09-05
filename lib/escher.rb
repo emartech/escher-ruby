@@ -20,7 +20,7 @@ class Escher
     @date_header_name = options[:date_header_name] || 'X-Escher-Date'
   end
 
-  def validate_request(method, request_uri, body, headers, key_db)
+  def validate_request(key_db, method, request_uri, body, headers)
     date = Time.parse(get_header(@date_header_name, headers))
     auth_header = get_header(@auth_header_name, headers)
 
@@ -38,22 +38,15 @@ class Escher
 
     path, query_parts = parse_uri(request_uri)
 
-    escher = Escher.new(
-        credential_scope,
-        algo_prefix: @algo_prefix,
-        vendor_key: @vendor_key,
-        hash_algo: algorithm,
-        auth_header_name: @auth_header_name,
-        date_header_name: @date_header_name,
-        current_time: date
-    )
+    escher = reconfig(algorithm, credential_scope, date)
 
     expected_signature = escher.generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
     raise EscherError, 'The signatures do not match' unless signature == expected_signature
   end
 
   # TODO: rename to validate_presigned_url
-  def validate_signed_url(host, request_uri, key_db)
+  def validate_signed_url(key_db, host, request_uri)
+    method = 'GET'
     path, query_parts = parse_uri(request_uri)
     headers = [['host', host]]
     body = 'UNSIGNED-PAYLOAD'
@@ -74,7 +67,14 @@ class Escher
     raise EscherError, 'The request date is not within the accepted time range' unless is_date_not_expired?(date, expires)
     raise EscherError, 'Invalid credentials' unless credential_scope == @credential_scope
 
-    escher = Escher.new(
+    escher = reconfig(algorithm, credential_scope, date)
+
+    expected_signature = escher.generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
+    raise EscherError, 'The signatures do not match' unless signature == expected_signature
+  end
+
+  def reconfig(algorithm, credential_scope, date)
+    Escher.new(
         credential_scope,
         algo_prefix: @algo_prefix,
         vendor_key: @vendor_key,
@@ -83,9 +83,6 @@ class Escher
         date_header_name: @date_header_name,
         current_time: date
     )
-
-    expected_signature = escher.generate_signature(api_secret, body, headers, 'GET', signed_headers, path, query_parts)
-    raise EscherError, 'The signatures do not match' unless signature == expected_signature
   end
 
   # TODO: do we really need host here?
