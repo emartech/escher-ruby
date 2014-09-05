@@ -34,7 +34,7 @@ class Escher
     raise EscherError, 'Host header is not signed' unless signed_headers.include? 'host'
     raise EscherError, 'Date header is not signed' unless signed_headers.include? @date_header_name.downcase
     raise EscherError, 'Invalid request date' unless short_date(date) == short_date
-    raise EscherError, 'The request date is not within the accepted time range' unless is_date_within_range?(date)
+    raise EscherError, 'The request date is not within the accepted time range' unless is_date_within_range?(date, 900)
     raise EscherError, 'Invalid credentials' unless credential_scope == @credential_scope
 
     path, query_parts = parse_uri(request_uri)
@@ -64,7 +64,7 @@ class Escher
     raise EscherError, 'The host header is not signed' unless signed_headers.include? 'host'
     raise EscherError, 'Only the host header should be signed' unless signed_headers == ['host']
     raise EscherError, 'The credential date does not match with the request date' unless short_date(date) == short_date
-    raise EscherError, 'The request date is not within the accepted time range' unless is_date_not_expired?(date, expires)
+    raise EscherError, 'The request date is not within the accepted time range' unless is_date_within_range?(date, expires)
     raise EscherError, 'Invalid credentials' unless credential_scope == @credential_scope
 
     escher = reconfig(algorithm, credential_scope, date)
@@ -246,13 +246,9 @@ class Escher
     date.utc.strftime('%Y%m%d')
   end
 
-  def is_date_within_range?(date)
-    (@current_time - 900 .. @current_time + 900).cover?(date)
-  end
-
-  def is_date_not_expired?(date, expires)
-    # TODO: check the docs for the FROM part
-    (@current_time .. @current_time + expires).cover?(date)
+  # TODO: check the docs for the FROM part
+  def is_date_within_range?(date, expires)
+    (@current_time - 900 .. @current_time + expires).cover?(date)
   end
 
   def get_algorithm_id
