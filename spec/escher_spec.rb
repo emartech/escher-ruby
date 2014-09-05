@@ -253,6 +253,11 @@ describe 'Escher' do
     expect { call_validate_request(headers) }.to raise_error(EscherError, 'Invalid credentials')
   end
 
+  it 'should convert dates' do
+    date_str = 'Fri, 09 Sep 2011 23:36:00 GMT'
+    expect(Escher.new('irrelevant', date_header_name: 'date', current_time: Time.parse(date_str)).format_date_for_header).to eq date_str
+  end
+
   def call_validate_request(headers)
     escher = Escher.new('us-east-1/host/aws4_request', ESCHER_AWS4_OPTIONS.merge(current_time: Time.parse('Mon, 09 Sep 2011 23:40:00 GMT')))
     escher.validate_request(key_db, 'GET', '/', '', headers)

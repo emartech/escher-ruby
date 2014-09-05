@@ -76,7 +76,7 @@ class Escher
 
   def generate_auth_header(client, method, host, request_uri, body, headers, headers_to_sign)
     path, query_parts = parse_uri(request_uri)
-    headers = add_defaults_to(headers, host, @current_time.utc.rfc2822)
+    headers = add_defaults_to(headers, host)
     headers_to_sign |= [@date_header_name.downcase, 'host']
     signature = generate_signature(client[:api_secret], body, headers, method, headers_to_sign, path, query_parts)
     "#{get_algorithm_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{prepare_headers_to_sign headers_to_sign}, Signature=#{signature}"
@@ -155,9 +155,14 @@ class Escher
     Digest::HMAC.hexdigest(string_to_sign, signing_key, create_algo)
   end
 
-  def add_defaults_to(headers, host, date)
-    [['host', host], [@date_header_name, date]].each { |k, v| headers = add_if_missing headers, k, v }
+  def add_defaults_to(headers, host)
+    [['host', host], [@date_header_name, format_date_for_header]]
+      .each { |k, v| headers = add_if_missing headers, k, v }
     headers
+  end
+
+  def format_date_for_header
+    @date_header_name.downcase == 'date' ? @current_time.utc.rfc2822.sub('-0000', 'GMT') : long_date(@current_time)
   end
 
   def add_if_missing(headers, header_to_find, value)
