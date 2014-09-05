@@ -64,7 +64,7 @@ def credential_scope
 end
 
 def client
-  {:api_key_id => 'AKIDEXAMPLE', :api_secret => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', :credential_scope => credential_scope}
+  {:api_key_id => 'AKIDEXAMPLE', :api_secret => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'}
 end
 
 describe 'Escher' do
