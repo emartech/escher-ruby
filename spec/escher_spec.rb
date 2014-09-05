@@ -172,7 +172,7 @@ describe 'Escher' do
         ['Date', "Mon, 09 Sep 2011 23:#{long_ago}:00 GMT"],
         ['Authorization', GOOD_AUTH_HEADER],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Invalid request date')
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'The request date is not within the accepted time range')
   end
 
   it 'should detect missing host header' do

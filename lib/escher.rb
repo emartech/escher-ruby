@@ -33,13 +33,13 @@ class Escher
     raise EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed' unless %w(SHA256 SHA512).include?(algorithm)
     raise EscherError, 'Host header is not signed' unless signed_headers.include? 'host'
     raise EscherError, 'Date header is not signed' unless signed_headers.include? @date_header_name.downcase
-    raise EscherError, 'Invalid request date' unless short_date(date) == short_date && is_date_within_range?(date)
+    raise EscherError, 'Invalid request date' unless short_date(date) == short_date
+    raise EscherError, 'The request date is not within the accepted time range' unless is_date_within_range?(date)
     raise EscherError, 'Invalid credentials' unless credential_scope == @credential_scope
 
     path, query_parts = parse_uri(request_uri)
 
     escher = reconfig(algorithm, credential_scope, date)
-
     expected_signature = escher.generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
     raise EscherError, 'The signatures do not match' unless signature == expected_signature
   end
@@ -68,7 +68,6 @@ class Escher
     raise EscherError, 'Invalid credentials' unless credential_scope == @credential_scope
 
     escher = reconfig(algorithm, credential_scope, date)
-
     expected_signature = escher.generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
     raise EscherError, 'The signatures do not match' unless signature == expected_signature
   end
