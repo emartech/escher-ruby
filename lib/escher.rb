@@ -1,7 +1,6 @@
 require 'escher/version'
 
 require 'time'
-require 'uri'
 require 'digest'
 require 'pathname'
 require 'addressable/uri'
@@ -54,11 +53,8 @@ class Escher
   end
 
   # TODO: rename to validate_presigned_url
-  def validate_signed_url(presigned_url, key_db)
-    uri = URI.parse(presigned_url)
-    host = uri.host
-    path = uri.path
-    query_parts = parse_query(uri.query)
+  def validate_signed_url(host, request_uri, key_db)
+    path, query_parts = parse_uri(request_uri)
     headers = [['host', host]]
     body = 'UNSIGNED-PAYLOAD'
     signature, signing_params, query_parts = extract_signing_params(query_parts)
@@ -102,7 +98,7 @@ class Escher
   end
 
   def generate_signed_url(url_to_sign, client, expires = 86400)
-    uri = URI.parse(url_to_sign)
+    uri = Addressable::URI.parse(url_to_sign)
     protocol = uri.scheme
     host = uri.host
     path = uri.path
@@ -114,7 +110,7 @@ class Escher
     query_parts += get_signing_params(client, expires, headers_to_sign)
 
     signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
-    query_parts_with_signature = (query_parts.map { |k, v| [k, uri_encode(v)] } << query_pair('Signature', signature))
+    query_parts_with_signature = (query_parts.map { |k, v| [uri_encode(k), uri_encode(v)] } << query_pair('Signature', signature))
 
     protocol + '://' + host + path + '?' + query_parts_with_signature.map { |k, v| k + '=' + v }.join('&')
   end
@@ -150,7 +146,7 @@ class Escher
   end
 
   def query_pair(k, v)
-    [query_key_for(k), URI::encode(v)]
+    [query_key_for(k), v]
   end
 
   def query_key_for(key)

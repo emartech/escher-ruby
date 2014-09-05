@@ -124,8 +124,8 @@ describe 'Escher' do
 
   it 'should validate presigned url' do
     escher = Escher.new('us-east-1/host/aws4_request', ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('2011/05/11 12:00:00 UTC')))
-    presigned_url =
-      'http://example.com/something?foo=bar&' + 'baz=barbaz&' +
+    presigned_uri =
+      '/something?foo=bar&' + 'baz=barbaz&' +
         'X-EMS-Algorithm=EMS-HMAC-SHA256&' +
         'X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&' +
         'X-EMS-Date=20110511T120000Z&' +
@@ -134,7 +134,7 @@ describe 'Escher' do
         'X-EMS-Signature=fbc9dbb91670e84d04ad2ae7505f4f52ab3ff9e192b8233feeae57e9022c2b67'
 
     client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
-    expect { escher.validate_signed_url(presigned_url, key_db) }.not_to raise_error
+    expect { escher.validate_signed_url('example.com', presigned_uri, key_db) }.not_to raise_error
   end
 
   it 'should validate request' do
