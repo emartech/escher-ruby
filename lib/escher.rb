@@ -21,55 +21,45 @@ class Escher
   end
 
   def validate_request(key_db, method, request_uri, body, headers)
-    date = Time.parse(get_header(@date_header_name, headers))
-    auth_header = get_header(@auth_header_name, headers)
+    path, query_parts = parse_uri(request_uri)
+    signature_from_query = get_signing_param('Signature', query_parts)
 
-    algorithm, api_key_id, short_date, credential_scope, signed_headers, signature = parse_auth_header(auth_header)
+    validate_headers(headers, signature_from_query)
 
+    if method.upcase == 'GET' && signature_from_query
+      raw_date = get_signing_param('Date', query_parts)
+      algorithm, api_key_id, short_date, credential_scope, signed_headers, signature, from, expires  = get_auth_parts_from_query(query_parts)
+
+      body = 'UNSIGNED-PAYLOAD'
+      query_parts.delete [query_key_for('Signature'), signature]
+      query_parts = query_parts.map { |k, v| [uri_decode(k), uri_decode(v)] }
+    else
+      raw_date = get_header(@date_header_name, headers)
+      auth_header = get_header(@auth_header_name, headers)
+      algorithm, api_key_id, short_date, credential_scope, signed_headers, signature, from, expires = get_auth_parts_from_header(auth_header)
+    end
+
+    date = Time.parse(raw_date)
     api_secret = key_db[api_key_id]
 
-    get_header('host', headers) # validate host
     raise EscherError, 'Invalid API key' unless api_secret
     raise EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed' unless %w(SHA256 SHA512).include?(algorithm)
-    raise EscherError, 'Host header is not signed' unless signed_headers.include? 'host'
-    raise EscherError, 'Date header is not signed' unless signed_headers.include? @date_header_name.downcase
     raise EscherError, 'Invalid request date' unless short_date(date) == short_date
-    raise EscherError, 'The request date is not within the accepted time range' unless is_date_within_range?(date, 900)
+    raise EscherError, 'The request date is not within the accepted time range' unless is_date_within_range?(date, from, expires)
     raise EscherError, 'Invalid credentials' unless credential_scope == @credential_scope
-
-    path, query_parts = parse_uri(request_uri)
+    raise EscherError, 'Host header is not signed' unless signed_headers.include? 'host'
+    raise EscherError, 'Only the host header should be signed' if signature_from_query && signed_headers != ['host']
+    raise EscherError, 'Date header is not signed' if !signature_from_query && !signed_headers.include?(@date_header_name.downcase)
 
     escher = reconfig(algorithm, credential_scope, date)
     expected_signature = escher.generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
     raise EscherError, 'The signatures do not match' unless signature == expected_signature
   end
 
-  # TODO: rename to validate_presigned_url
-  def validate_signed_url(key_db, host, request_uri)
-    method = 'GET'
-    path, query_parts = parse_uri(request_uri)
-    headers = [['host', host]]
-    body = 'UNSIGNED-PAYLOAD'
-    signature, signing_params, query_parts = extract_signing_params(query_parts)
-
-    api_key_id, short_date, credential_scope = signing_params['credentials'].split('/', 3)
-    signed_headers = signing_params['signedheaders'].split ';'
-    date = Time.parse(signing_params['date'])
-    expires = signing_params['expires'].to_i
-    algorithm = process_algorithm_id(signing_params['algorithm'])
-    api_secret = key_db[api_key_id]
-
-    raise EscherError, 'Invalid API key' unless api_secret
-    raise EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed' unless %w(SHA256 SHA512).include?(algorithm)
-    raise EscherError, 'The host header is not signed' unless signed_headers.include? 'host'
-    raise EscherError, 'Only the host header should be signed' unless signed_headers == ['host']
-    raise EscherError, 'The credential date does not match with the request date' unless short_date(date) == short_date
-    raise EscherError, 'The request date is not within the accepted time range' unless is_date_within_range?(date, expires)
-    raise EscherError, 'Invalid credentials' unless credential_scope == @credential_scope
-
-    escher = reconfig(algorithm, credential_scope, date)
-    expected_signature = escher.generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
-    raise EscherError, 'The signatures do not match' unless signature == expected_signature
+  def validate_headers(headers, using_query_string_for_validation)
+    (['host'] + (using_query_string_for_validation ? [] : [@auth_header_name, @date_header_name])).each do |header|
+      raise EscherError, 'Missing header: ' + header.downcase unless get_header(header, headers)
+    end
   end
 
   def reconfig(algorithm, credential_scope, date)
@@ -84,7 +74,6 @@ class Escher
     )
   end
 
-  # TODO: do we really need host here?
   def generate_auth_header(client, method, host, request_uri, body, headers, headers_to_sign)
     path, query_parts = parse_uri(request_uri)
     headers = add_defaults_to(headers, host, @current_time.utc.rfc2822)
@@ -121,26 +110,6 @@ class Escher
     ].map { |k, v| query_pair(k, v) }
   end
 
-  def extract_signing_params(query_parts)
-    signature = nil
-    signing_params = {}
-    query_parts_filtered = []
-    headers = %w(algorithm credentials date expires signedheaders)
-    query_parts.each { |k, v|
-      knorm = query_key_truncate(k.downcase)
-      v = uri_decode(v)
-      if knorm == 'signature'
-        signature = v
-      else
-        if headers.include?(knorm)
-          signing_params[knorm] = v
-        end
-        query_parts_filtered += [[k, v]]
-      end
-    }
-    [signature, signing_params, query_parts_filtered]
-  end
-
   def query_pair(k, v)
     [query_key_for(k), v]
   end
@@ -154,23 +123,29 @@ class Escher
   end
 
   def get_header(header_name, headers)
-    header = (headers.detect { |header| header[0].downcase == header_name.downcase })
-    raise EscherError, "Missing header: #{header_name.downcase}" unless header
-    header[1]
+    the_header = (headers.detect { |header| header[0].downcase == header_name.downcase })
+    the_header ? the_header[1] : nil
   end
 
-  def parse_auth_header(auth_header)
+  def get_signing_param(key, query_parts)
+    the_param = (query_parts.detect { |param| param[0] === query_key_for(key) })
+    the_param ? uri_decode(the_param[1]) : nil
+  end
+
+  def get_auth_parts_from_header(auth_header)
     m = /#{@algo_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+) Credential=(?<api_key_id>[A-Za-z0-9\-_]+)\/(?<short_date>[0-9]{8})\/(?<credentials>[A-Za-z0-9\-_\/]+), SignedHeaders=(?<signed_headers>[A-Za-z\-;]+), Signature=(?<signature>[0-9a-f]+)$/
     .match auth_header
     raise EscherError, 'Malformed authorization header' unless m && m['credentials']
-    [
-        m['algo'].upcase,
-        m['api_key_id'],
-        m['short_date'],
-        m['credentials'],
-        m['signed_headers'].split(';'),
-        m['signature'],
-    ]
+    return m['algo'].upcase, m['api_key_id'], m['short_date'], m['credentials'], m['signed_headers'].split(';'), m['signature'], 900, 900
+  end
+
+  def get_auth_parts_from_query(query_parts)
+    expires = get_signing_param('Expires', query_parts).to_i
+    api_key_id, short_date, credential_scope = get_signing_param('Credentials', query_parts).split('/', 3)
+    signed_headers = get_signing_param('SignedHeaders', query_parts).split ';'
+    algorithm = parse_algo(get_signing_param('Algorithm', query_parts))
+    signature = get_signing_param('Signature', query_parts)
+    return algorithm, api_key_id, short_date, credential_scope, signed_headers, signature, 0, expires
   end
 
   def generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
@@ -246,16 +221,15 @@ class Escher
     date.utc.strftime('%Y%m%d')
   end
 
-  # TODO: check the docs for the FROM part
-  def is_date_within_range?(date, expires)
-    (@current_time - 900 .. @current_time + expires).cover?(date)
+  def is_date_within_range?(date, from, expires)
+    (@current_time - from .. @current_time + expires).cover?(date)
   end
 
   def get_algorithm_id
     @algo_prefix + '-HMAC-' + @hash_algo
   end
 
-  def process_algorithm_id(algorithm)
+  def parse_algo(algorithm)
     m = /^#{@algo_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+)$/.match(algorithm)
     m && m['algo'].upcase
   end
