@@ -18,6 +18,7 @@ class Escher
     @current_time     = options[:current_time]     || Time.now
     @auth_header_name = options[:auth_header_name] || 'X-Escher-Auth'
     @date_header_name = options[:date_header_name] || 'X-Escher-Date'
+    @clock_skew       = options[:clock_skew]       || 900
   end
 
   def validate_request(key_db, method, request_uri, body, headers)
@@ -28,7 +29,7 @@ class Escher
 
     if method.upcase == 'GET' && signature_from_query
       raw_date = get_signing_param('Date', query_parts)
-      algorithm, api_key_id, short_date, credential_scope, signed_headers, signature, from, expires  = get_auth_parts_from_query(query_parts)
+      algorithm, api_key_id, short_date, credential_scope, signed_headers, signature, from, expires = get_auth_parts_from_query(query_parts)
 
       body = 'UNSIGNED-PAYLOAD'
       query_parts.delete [query_key_for('Signature'), signature]
@@ -136,7 +137,7 @@ class Escher
     m = /#{@algo_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+) Credential=(?<api_key_id>[A-Za-z0-9\-_]+)\/(?<short_date>[0-9]{8})\/(?<credentials>[A-Za-z0-9\-_\/]+), SignedHeaders=(?<signed_headers>[A-Za-z\-;]+), Signature=(?<signature>[0-9a-f]+)$/
     .match auth_header
     raise EscherError, 'Malformed authorization header' unless m && m['credentials']
-    return m['algo'].upcase, m['api_key_id'], m['short_date'], m['credentials'], m['signed_headers'].split(';'), m['signature'], 900, 900
+    return m['algo'].upcase, m['api_key_id'], m['short_date'], m['credentials'], m['signed_headers'].split(';'), m['signature'], @clock_skew, @clock_skew
   end
 
   def get_auth_parts_from_query(query_parts)
@@ -226,8 +227,8 @@ class Escher
     date.utc.strftime('%Y%m%d')
   end
 
-  def is_date_within_range?(date, from, expires)
-    (@current_time - from .. @current_time + expires).cover?(date)
+  def is_date_within_range?(request_date, from, expires)
+    (request_date - from .. request_date + expires).cover? @current_time
   end
 
   def get_algorithm_id
