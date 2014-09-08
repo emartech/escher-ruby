@@ -46,7 +46,7 @@ ESCHER_AWS4_OPTIONS = {
 }
 
 ESCHER_EMARSYS_OPTIONS = {
-  algo_prefix: 'EMS', vendor_key: 'EMS', hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date'
+  algo_prefix: 'EMS', vendor_key: 'EMS', hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date', clock_skew: 10
 }
 
 GOOD_AUTH_HEADER = 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'
@@ -137,7 +137,7 @@ describe 'Escher' do
     expect { escher.validate_request(key_db, 'GET', presigned_uri, 'IRRELEVANT', [%w(host example.com)]) }.not_to raise_error
   end
 
-  it 'should validate expiry' do
+  it 'should validate expiration' do
     escher = Escher.new('us-east-1/host/aws4_request', ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('2011/05/12 22:20:00 UTC')))
     presigned_uri =
         '/something?foo=bar&' + 'baz=barbaz&' +

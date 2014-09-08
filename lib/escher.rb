@@ -29,7 +29,7 @@ class Escher
 
     if method.upcase == 'GET' && signature_from_query
       raw_date = get_signing_param('Date', query_parts)
-      algorithm, api_key_id, short_date, credential_scope, signed_headers, signature, from, expires = get_auth_parts_from_query(query_parts)
+      algorithm, api_key_id, short_date, credential_scope, signed_headers, signature, expires = get_auth_parts_from_query(query_parts)
 
       body = 'UNSIGNED-PAYLOAD'
       query_parts.delete [query_key_for('Signature'), signature]
@@ -37,7 +37,7 @@ class Escher
     else
       raw_date = get_header(@date_header_name, headers)
       auth_header = get_header(@auth_header_name, headers)
-      algorithm, api_key_id, short_date, credential_scope, signed_headers, signature, from, expires = get_auth_parts_from_header(auth_header)
+      algorithm, api_key_id, short_date, credential_scope, signed_headers, signature, expires = get_auth_parts_from_header(auth_header)
     end
 
     date = Time.parse(raw_date)
@@ -46,7 +46,7 @@ class Escher
     raise EscherError, 'Invalid API key' unless api_secret
     raise EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed' unless %w(SHA256 SHA512).include?(algorithm)
     raise EscherError, 'Invalid request date' unless short_date(date) == short_date
-    raise EscherError, 'The request date is not within the accepted time range' unless is_date_within_range?(date, from, expires)
+    raise EscherError, 'The request date is not within the accepted time range' unless is_date_within_range?(date, expires)
     raise EscherError, 'Invalid credentials' unless credential_scope == @credential_scope
     raise EscherError, 'Host header is not signed' unless signed_headers.include? 'host'
     raise EscherError, 'Only the host header should be signed' if signature_from_query && signed_headers != ['host']
@@ -137,7 +137,7 @@ class Escher
     m = /#{@algo_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+) Credential=(?<api_key_id>[A-Za-z0-9\-_]+)\/(?<short_date>[0-9]{8})\/(?<credentials>[A-Za-z0-9\-_\/]+), SignedHeaders=(?<signed_headers>[A-Za-z\-;]+), Signature=(?<signature>[0-9a-f]+)$/
     .match auth_header
     raise EscherError, 'Malformed authorization header' unless m && m['credentials']
-    return m['algo'].upcase, m['api_key_id'], m['short_date'], m['credentials'], m['signed_headers'].split(';'), m['signature'], @clock_skew, @clock_skew
+    return m['algo'].upcase, m['api_key_id'], m['short_date'], m['credentials'], m['signed_headers'].split(';'), m['signature'], 0
   end
 
   def get_auth_parts_from_query(query_parts)
@@ -146,7 +146,7 @@ class Escher
     signed_headers = get_signing_param('SignedHeaders', query_parts).split ';'
     algorithm = parse_algo(get_signing_param('Algorithm', query_parts))
     signature = get_signing_param('Signature', query_parts)
-    return algorithm, api_key_id, short_date, credential_scope, signed_headers, signature, 0, expires
+    return algorithm, api_key_id, short_date, credential_scope, signed_headers, signature, expires
   end
 
   def generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
@@ -227,8 +227,8 @@ class Escher
     date.utc.strftime('%Y%m%d')
   end
 
-  def is_date_within_range?(request_date, from, expires)
-    (request_date - from .. request_date + expires).cover? @current_time
+  def is_date_within_range?(request_date, expires)
+    (request_date - @clock_skew .. request_date + expires + @clock_skew).cover? @current_time
   end
 
   def get_algorithm_id
