@@ -12,13 +12,21 @@ class Escher
 
   def initialize(credential_scope, options)
     @credential_scope = credential_scope
+    @vendor_key       = options[:vendor_key]       || 'ESR'
     @algo_prefix      = options[:algo_prefix]      || 'Escher'
-    @vendor_key       = options[:vendor_key]       || 'Escher'
     @hash_algo        = options[:hash_algo]        || 'SHA256'
     @current_time     = options[:current_time]     || Time.now
     @auth_header_name = options[:auth_header_name] || 'X-Escher-Auth'
     @date_header_name = options[:date_header_name] || 'X-Escher-Date'
     @clock_skew       = options[:clock_skew]       || 900
+  end
+
+  def sign!(request, client)
+    uri_parsed = URI.parse(request.path)
+    request['Host'] = uri_parsed.host # TODO: we shouldn't remove port from Host here
+    request[@date_header_name] = format_date_for_header
+    request[@auth_header_name] = generate_auth_header(client, request.method, uri_parsed.host, uri_parsed.path, request.body || '', request.to_enum.to_a, [])
+    request
   end
 
   def validate_request(key_db, method, request_uri, body, headers)
@@ -163,7 +171,7 @@ class Escher
   end
 
   def format_date_for_header
-    @date_header_name.downcase == 'date' ? @current_time.utc.rfc2822.sub('-0000', 'GMT') : long_date(@current_time)
+    @current_time.utc.strftime('%a, %d %b %Y %H:%M:%S GMT')
   end
 
   def add_if_missing(headers, header_to_find, value)
@@ -176,7 +184,7 @@ class Escher
       method.upcase,
       canonicalize_path(path),
       canonicalize_query(query_parts),
-      canonicalize_headers(headers).join("\n"),
+      canonicalize_headers(headers, headers_to_sign).join("\n"),
       '',
       prepare_headers_to_sign(headers_to_sign),
       create_algo.new.hexdigest(body)
@@ -242,7 +250,7 @@ class Escher
 
   def calculate_signing_key(api_secret)
     algo = create_algo
-    signing_key = @algo_prefix + api_secret
+    signing_key = @vendor_key + api_secret
     key_parts = [short_date(@current_time)] + @credential_scope.split('/')
     key_parts.each { |data|
       signing_key = Digest::HMAC.digest(data, signing_key, algo)
@@ -255,9 +263,10 @@ class Escher
     path.gsub(%r{/\./}, '/').sub(%r{/\.\z}, '/').gsub(/\/+/, '/')
   end
 
-  def canonicalize_headers(raw_headers)
+  def canonicalize_headers(raw_headers, headers_to_sign)
     collect_headers(raw_headers)
       .sort
+      .select { |k, v| headers_to_sign.include?(k) }
       .map { |k, v| k + ':' + v.map { |piece| normalize_white_spaces piece} .join(',') }
   end
 

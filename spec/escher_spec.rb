@@ -42,7 +42,7 @@ test_suites = {
 }
 
 ESCHER_AWS4_OPTIONS = {
-  algo_prefix: 'AWS4', vendor_key: 'Amz', hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date'
+  algo_prefix: 'AWS4', vendor_key: 'AWS4', hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date'
 }
 
 ESCHER_EMARSYS_OPTIONS = {
