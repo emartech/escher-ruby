@@ -36,7 +36,6 @@ class Escher
         headers += [[ key, value ]]
       }
     }
-    puts headers.to_s
     validate_request(key_db, request.request_method, request.path, request.body, headers)
   end
 
@@ -86,8 +85,8 @@ class Escher
   end
 
   def validate_headers(headers, using_query_string_for_validation)
-    (['host'] + (using_query_string_for_validation ? [] : [@auth_header_name, @date_header_name])).each do |header|
-      raise EscherError, 'Missing header: ' + header.downcase unless get_header(header, headers)
+    (['Host'] + (using_query_string_for_validation ? [] : [@auth_header_name, @date_header_name])).each do |header|
+      raise EscherError, 'Missing header: ' + header unless get_header(header, headers)
     end
   end
 

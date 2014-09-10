@@ -196,7 +196,7 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', GOOD_AUTH_HEADER],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: host')
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: Host')
   end
 
   it 'should detect missing date header' do
@@ -204,7 +204,7 @@ describe 'Escher' do
         %w(Host host.foo.com),
         ['Authorization', GOOD_AUTH_HEADER],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: date')
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: Date')
   end
 
   it 'should detect missing auth header' do
@@ -212,7 +212,7 @@ describe 'Escher' do
         %w(Host host.foo.com),
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: authorization')
+    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: Authorization')
   end
 
   it 'should detect malformed auth header' do
