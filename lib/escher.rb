@@ -29,13 +29,33 @@ class Escher
     request
   end
 
+  def validate(request, key_db)
+    headers = []
+    request.header.each { |key, values|
+      values.each { |value|
+        headers += [[ key, value ]]
+      }
+    }
+    puts headers.to_s
+    validate_request(key_db, request.request_method, request.path, request.body, headers)
+  end
+
+  def is_valid?(*args)
+    begin
+      validate(*args)
+      return true
+    rescue
+      return false
+    end
+  end
+
   def validate_request(key_db, method, request_uri, body, headers)
     path, query_parts = parse_uri(request_uri)
     signature_from_query = get_signing_param('Signature', query_parts)
 
     validate_headers(headers, signature_from_query)
 
-    if method.upcase == 'GET' && signature_from_query
+    if method == 'GET' && signature_from_query
       raw_date = get_signing_param('Date', query_parts)
       algorithm, api_key_id, short_date, credential_scope, signed_headers, signature, expires = get_auth_parts_from_query(query_parts)
 
@@ -142,10 +162,10 @@ class Escher
   end
 
   def get_auth_parts_from_header(auth_header)
-    m = /#{@algo_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+) Credential=(?<api_key_id>[A-Za-z0-9\-_]+)\/(?<short_date>[0-9]{8})\/(?<credentials>[A-Za-z0-9\-_\/]+), SignedHeaders=(?<signed_headers>[A-Za-z\-;]+), Signature=(?<signature>[0-9a-f]+)$/
+    m = /#{@algo_prefix}-HMAC-(?<algo>[A-Z0-9\,]+) Credential=(?<api_key_id>[A-Za-z0-9\-_]+)\/(?<short_date>[0-9]{8})\/(?<credentials>[A-Za-z0-9\-_\/]+), SignedHeaders=(?<signed_headers>[A-Za-z\-;]+), Signature=(?<signature>[0-9a-f]+)$/
     .match auth_header
     raise EscherError, 'Malformed authorization header' unless m && m['credentials']
-    return m['algo'].upcase, m['api_key_id'], m['short_date'], m['credentials'], m['signed_headers'].split(';'), m['signature'], 0
+    return m['algo'], m['api_key_id'], m['short_date'], m['credentials'], m['signed_headers'].split(';'), m['signature'], 0
   end
 
   def get_auth_parts_from_query(query_parts)
@@ -179,15 +199,14 @@ class Escher
     headers
   end
 
-  def canonicalize(method, path, query_parts, body, headers, headers_to_sign)
-    [
-      method.upcase,
+  def canonicalize(method, path, query_parts, body, headers, headers_to_sign)    [
+      method,
       canonicalize_path(path),
       canonicalize_query(query_parts),
       canonicalize_headers(headers, headers_to_sign).join("\n"),
       '',
       prepare_headers_to_sign(headers_to_sign),
-      create_algo.new.hexdigest(body)
+      create_algo.new.hexdigest(body || '') # TODO: we should set the default value at the same level at every implementation
     ].join "\n"
   end
 
@@ -217,7 +236,7 @@ class Escher
   end
 
   def create_algo
-    case @hash_algo.upcase
+    case @hash_algo
       when 'SHA256'
         return Digest::SHA2.new 256
       when 'SHA512'
@@ -244,8 +263,8 @@ class Escher
   end
 
   def parse_algo(algorithm)
-    m = /^#{@algo_prefix.upcase}-HMAC-(?<algo>[A-Z0-9\,]+)$/.match(algorithm)
-    m && m['algo'].upcase
+    m = /^#{@algo_prefix}-HMAC-(?<algo>[A-Z0-9\,]+)$/.match(algorithm)
+    m && m['algo']
   end
 
   def calculate_signing_key(api_secret)
