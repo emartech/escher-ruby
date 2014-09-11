@@ -12,8 +12,8 @@ class Escher
 
   def initialize(credential_scope, options)
     @credential_scope = credential_scope
-    @vendor_key       = options[:vendor_key]       || 'ESR'
-    @algo_prefix      = options[:algo_prefix]      || 'Escher'
+    @algo_prefix      = options[:algo_prefix]      || 'ESR'
+    @vendor_key       = options[:vendor_key]       || 'Escher'
     @hash_algo        = options[:hash_algo]        || 'SHA256'
     @current_time     = options[:current_time]     || Time.now
     @auth_header_name = options[:auth_header_name] || 'X-Escher-Auth'
