@@ -190,7 +190,7 @@ class Escher
   end
 
   def format_date_for_header
-    @current_time.utc.strftime('%a, %d %b %Y %H:%M:%S GMT')
+    @date_header_name.downcase == 'date' ? @current_time.utc.rfc2822.sub('-0000', 'GMT') : long_date(@current_time)
   end
 
   def add_if_missing(headers, header_to_find, value)
