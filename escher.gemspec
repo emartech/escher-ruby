@@ -8,9 +8,9 @@ Gem::Specification.new do |spec|
   spec.version       = Escher::VERSION
   spec.authors       = ["Andras Barthazi"]
   spec.email         = ["andras.barthazi@emarsys.com"]
-  spec.summary       = %q{Escher - Emarsys request signing library}
-  spec.description   = %q{For Emarsys API}
-  spec.homepage      = "http://emarsys.com"
+  spec.summary       = %q{Library for HTTP request signing (Ruby implementation)}
+  spec.description   = %q{Escher helps you creating secure HTTP requests (for APIs) by signing HTTP(s) requests.}
+  spec.homepage      = "https://github.com/emartech/escher-ruby"
   spec.license       = "MIT"
 
   spec.files         = `git ls-files -z`.split("\x0")
