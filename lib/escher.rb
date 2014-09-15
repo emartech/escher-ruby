@@ -21,22 +21,18 @@ class Escher
     @clock_skew       = options[:clock_skew]       || 900
   end
 
-  def sign!(request, client)
-    uri_parsed = URI.parse(request.path)
-    request['Host'] = uri_parsed.host # TODO: we shouldn't remove port from Host here
-    request[@date_header_name] = format_date_for_header
-    request[@auth_header_name] = generate_auth_header(client, request.method, uri_parsed.host, uri_parsed.path, request.body || '', request.to_enum.to_a, [])
+  def sign!(req, client)
+    request = EscherRequest.new(req)
+    auth_header = generate_auth_header(client, request.method, uri_parsed.host, uri_parsed.path, request.body || '', request.to_enum.to_a, [])
+
+    request.setHeader('Host', request.host) # TODO: we shouldn't remove port from Host here
+    request.setHeader(@date_header_name, format_date_for_header)
+    request.setHeader(@auth_header_name, auth_header)
     request
   end
 
-  def validate(request, key_db)
-    headers = []
-    request.header.each { |key, values|
-      values.each { |value|
-        headers += [[ key, value ]]
-      }
-    }
-    validate_request(key_db, request.request_method, request.path, request.body, headers)
+  def validate(req, key_db)
+    validate_request(req, key_db)
   end
 
   def is_valid?(*args)
@@ -48,8 +44,14 @@ class Escher
     end
   end
 
-  def validate_request(key_db, method, request_uri, body, headers)
-    path, query_parts = parse_uri(request_uri)
+  def validate_request(req, key_db)
+    request = EscherRequest.new(req)
+    method = request.method
+    body = request.body
+    headers = request.headers
+    path = request.path
+    query_parts = request.query_values
+
     signature_from_query = get_signing_param('Signature', query_parts)
 
     validate_headers(headers, signature_from_query)
@@ -322,4 +324,85 @@ class Escher
   def uri_decode(component)
     Addressable::URI.unencode_component(component)
   end
+end
+
+class EscherRequest
+
+  def initialize(request)
+    @request = request
+    @request_uri = Addressable::URI.parse(uri)
+    prepare_request_headers()
+  end
+
+  def prepare_request_headers
+    @request_headers = []
+    case @request.class.to_s
+      when "Hash"
+        @request_headers = @request[:headers]
+      when "Sinatra::Request" # TODO: not working yet
+        @request.env.each { |key, value|
+          if key.downcase[0, 5] == "http_"
+            @request_headers += [[ key[5..-1].gsub("_", "-"), value ]]
+          end
+        }
+      when "WEBrick::HTTPRequest"
+        @request.header.each { |key, values|
+          values.each { |value|
+            @request_headers += [[ key, value ]]
+          }
+        }
+    end
+  end
+
+  def request
+    @request
+  end
+
+  def headers
+    @request_headers
+  end
+
+  def setHeader(key, value)
+    @request[key] = value
+  end
+
+  def method
+    case @request.class.to_s
+      when "Hash"
+        @request[:method]
+      else
+        @request.request_method
+    end
+  end
+
+  def uri
+    case @request.class.to_s
+      when "Hash"
+        @request[:uri]
+      else
+        @request.uri
+    end
+  end
+
+  def body
+    case @request.class.to_s
+      when "Hash"
+        @request[:body]
+      else
+        @request.body
+    end
+  end
+
+  def host
+    @request_uri.host
+  end
+
+  def path
+    @request_uri.path
+  end
+
+  def query_values
+    @request_uri.query_values(Array) || []
+  end
+
 end
