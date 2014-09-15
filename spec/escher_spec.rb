@@ -134,7 +134,7 @@ describe 'Escher' do
           'X-EMS-Signature=fbc9dbb91670e84d04ad2ae7505f4f52ab3ff9e192b8233feeae57e9022c2b67'
 
     client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
-    expect { escher.validate_request({
+    expect { escher.validate({
       :method => 'GET',
       :headers => [%w(host example.com)],
       :uri => presigned_uri,
@@ -154,7 +154,7 @@ describe 'Escher' do
           'X-EMS-Signature=fbc9dbb91670e84d04ad2ae7505f4f52ab3ff9e192b8233feeae57e9022c2b67'
 
     client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
-    expect { escher.validate_request({
+    expect { escher.validate({
       :method => 'GET',
       :headers => [%w(host example.com)],
       :uri => presigned_uri,
@@ -168,7 +168,7 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', GOOD_AUTH_HEADER],
     ]
-    expect { call_validate_request(headers) }.not_to raise_error
+    expect { call_validate(headers) }.not_to raise_error
   end
 
   it 'should detect if signatures do not match' do
@@ -177,7 +177,7 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'The signatures do not match')
+    expect { call_validate(headers) }.to raise_error(EscherError, 'The signatures do not match')
   end
 
   it 'should detect if dates are not on the same day' do
@@ -187,7 +187,7 @@ describe 'Escher' do
         ['Date', "Mon, #{yesterday} Sep 2011 23:36:00 GMT"],
         ['Authorization', GOOD_AUTH_HEADER],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Invalid request date')
+    expect { call_validate(headers) }.to raise_error(EscherError, 'Invalid request date')
   end
 
   it 'should detect if date is not within the 15 minutes range' do
@@ -197,7 +197,7 @@ describe 'Escher' do
         ['Date', "Mon, 09 Sep 2011 23:#{long_ago}:00 GMT"],
         ['Authorization', GOOD_AUTH_HEADER],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'The request date is not within the accepted time range')
+    expect { call_validate(headers) }.to raise_error(EscherError, 'The request date is not within the accepted time range')
   end
 
   it 'should detect missing host header' do
@@ -205,7 +205,7 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', GOOD_AUTH_HEADER],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: Host')
+    expect { call_validate(headers) }.to raise_error(EscherError, 'Missing header: Host')
   end
 
   it 'should detect missing date header' do
@@ -213,7 +213,7 @@ describe 'Escher' do
         %w(Host host.foo.com),
         ['Authorization', GOOD_AUTH_HEADER],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: Date')
+    expect { call_validate(headers) }.to raise_error(EscherError, 'Missing header: Date')
   end
 
   it 'should detect missing auth header' do
@@ -221,7 +221,7 @@ describe 'Escher' do
         %w(Host host.foo.com),
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Missing header: Authorization')
+    expect { call_validate(headers) }.to raise_error(EscherError, 'Missing header: Authorization')
   end
 
   it 'should detect malformed auth header' do
@@ -230,7 +230,7 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=UNPARSABLE'],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Malformed authorization header')
+    expect { call_validate(headers) }.to raise_error(EscherError, 'Malformed authorization header')
   end
 
   it 'should detect malformed credential scope' do
@@ -239,7 +239,7 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=BAD-CREDENTIAL-SCOPE, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Malformed authorization header')
+    expect { call_validate(headers) }.to raise_error(EscherError, 'Malformed authorization header')
   end
 
   it 'should check mandatory signed headers: host' do
@@ -248,7 +248,7 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Host header is not signed')
+    expect { call_validate(headers) }.to raise_error(EscherError, 'Host header is not signed')
   end
 
   it 'should check mandatory signed headers: date' do
@@ -257,7 +257,7 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Date header is not signed')
+    expect { call_validate(headers) }.to raise_error(EscherError, 'Date header is not signed')
   end
 
   it 'should check algorithm' do
@@ -266,7 +266,7 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-INVALID Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed')
+    expect { call_validate(headers) }.to raise_error(EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed')
   end
 
   it 'should check credential scope' do
@@ -275,7 +275,7 @@ describe 'Escher' do
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/INVALID/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
     ]
-    expect { call_validate_request(headers) }.to raise_error(EscherError, 'Invalid credentials')
+    expect { call_validate(headers) }.to raise_error(EscherError, 'Invalid credentials')
   end
 
   it 'should convert dates' do
@@ -283,9 +283,9 @@ describe 'Escher' do
     expect(Escher.new('irrelevant', date_header_name: 'date', current_time: Time.parse(date_str)).format_date_for_header).to eq date_str
   end
 
-  def call_validate_request(headers)
+  def call_validate(headers)
     escher = Escher.new('us-east-1/host/aws4_request', ESCHER_AWS4_OPTIONS.merge(current_time: Time.parse('Mon, 09 Sep 2011 23:40:00 GMT')))
-    escher.validate_request({
+    escher.validate({
       :method => 'GET',
       :headers => headers,
       :uri => '/',

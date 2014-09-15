@@ -31,10 +31,6 @@ class Escher
     request
   end
 
-  def validate(req, key_db)
-    validate_request(req, key_db)
-  end
-
   def is_valid?(*args)
     begin
       validate(*args)
@@ -44,7 +40,7 @@ class Escher
     end
   end
 
-  def validate_request(req, key_db)
+  def validate(req, key_db)
     request = EscherRequest.new(req)
     method = request.method
     body = request.body
