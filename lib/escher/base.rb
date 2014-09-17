@@ -50,7 +50,7 @@ class Escher
 
     signature_from_query = get_signing_param('Signature', query_parts)
 
-    validate_headers(headers, signature_from_query)
+    validate_headers(headers, !signature_from_query)
 
     if method == 'GET' && signature_from_query
       raw_date = get_signing_param('Date', query_parts)
@@ -82,8 +82,8 @@ class Escher
     raise EscherError, 'The signatures do not match' unless signature == expected_signature
   end
 
-  def validate_headers(headers, using_query_string_for_validation)
-    (['Host'] + (using_query_string_for_validation ? [] : [@auth_header_name, @date_header_name])).each do |header|
+  def validate_headers(headers, authenticated_by_header)
+    (['Host'] + (authenticated_by_header ? [@auth_header_name, @date_header_name] : [])).each do |header|
       raise EscherError, 'Missing header: ' + header unless get_header(header, headers)
     end
   end
