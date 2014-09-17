@@ -25,9 +25,9 @@ class Escher
     request = EscherRequest.new(req)
     auth_header = generate_auth_header(client, request.method, uri_parsed.host, uri_parsed.path, request.body || '', request.to_enum.to_a, [])
 
-    request.setHeader('Host', request.host) # TODO: we shouldn't remove port from Host here
-    request.setHeader(@date_header_name, format_date_for_header)
-    request.setHeader(@auth_header_name, auth_header)
+    request.set_header('Host', request.host) # TODO: we shouldn't remove port from Host here
+    request.set_header(@date_header_name, format_date_for_header)
+    request.set_header(@auth_header_name, auth_header)
     request
   end
 
@@ -282,7 +282,7 @@ class Escher
   def canonicalize_headers(raw_headers, headers_to_sign)
     collect_headers(raw_headers)
       .sort
-      .select { |k, v| headers_to_sign.include?(k) }
+      .select { |h| headers_to_sign.include?(h[0]) }
       .map { |k, v| k + ':' + v.map { |piece| normalize_white_spaces piece} .join(',') }
   end
 
