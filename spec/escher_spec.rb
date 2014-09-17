@@ -134,7 +134,7 @@ describe 'Escher' do
           'X-EMS-Signature=fbc9dbb91670e84d04ad2ae7505f4f52ab3ff9e192b8233feeae57e9022c2b67'
 
     client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
-    expect { escher.validate({
+    expect { escher.authenticate({
       :method => 'GET',
       :headers => [%w(host example.com)],
       :uri => presigned_uri,
@@ -154,7 +154,7 @@ describe 'Escher' do
           'X-EMS-Signature=fbc9dbb91670e84d04ad2ae7505f4f52ab3ff9e192b8233feeae57e9022c2b67'
 
     client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
-    expect { escher.validate({
+    expect { escher.authenticate({
       :method => 'GET',
       :headers => [%w(host example.com)],
       :uri => presigned_uri,
@@ -169,6 +169,15 @@ describe 'Escher' do
         ['Authorization', GOOD_AUTH_HEADER],
     ]
     expect { call_validate(headers) }.not_to raise_error
+  end
+
+  it 'should authenticate' do
+    headers = [
+        %w(Host host.foo.com),
+        ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
+        ['Authorization', GOOD_AUTH_HEADER],
+    ]
+    expect(call_validate(headers)).to eq 'AKIDEXAMPLE'
   end
 
   it 'should detect if signatures do not match' do
@@ -285,7 +294,7 @@ describe 'Escher' do
 
   def call_validate(headers)
     escher = Escher.new('us-east-1/host/aws4_request', ESCHER_AWS4_OPTIONS.merge(current_time: Time.parse('Mon, 09 Sep 2011 23:40:00 GMT')))
-    escher.validate({
+    escher.authenticate({
       :method => 'GET',
       :headers => headers,
       :uri => '/',

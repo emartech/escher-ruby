@@ -33,14 +33,14 @@ class Escher
 
   def is_valid?(*args)
     begin
-      validate(*args)
+      authenticate(*args)
       return true
     rescue
       return false
     end
   end
 
-  def validate(req, key_db)
+  def authenticate(req, key_db)
     request = EscherRequest.new(req)
     method = request.method
     body = request.body
@@ -80,6 +80,7 @@ class Escher
     escher = reconfig(algorithm, credential_scope, date)
     expected_signature = escher.generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
     raise EscherError, 'The signatures do not match' unless signature == expected_signature
+    api_key_id
   end
 
   def validate_headers(headers, authenticated_by_header)
