@@ -45,9 +45,11 @@ ESCHER_AWS4_OPTIONS = {
   algo_prefix: 'AWS4', vendor_key: 'AWS4', hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date'
 }
 
-ESCHER_EMARSYS_OPTIONS = {
+ESCHER_MIXED_OPTIONS = {
   algo_prefix: 'EMS', vendor_key: 'EMS', hash_algo: 'SHA256', auth_header_name: 'Authorization', date_header_name: 'Date', clock_skew: 10
 }
+
+ESCHER_EMARSYS_OPTIONS = ESCHER_MIXED_OPTIONS.merge(auth_header_name: 'X-Ems-Auth', date_header_name: 'X-Ems-Date')
 
 GOOD_AUTH_HEADER = 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'
 
@@ -98,17 +100,44 @@ describe 'Escher' do
   test_suites.each do |suite, tests|
     tests.each do |test|
       it "should calculate auth header for #{test} in #{suite}" do
-        method, request_uri, body, headers, date, host = read_request(suite, test)
+        method, request_uri, body, headers, date = read_request(suite, test)
         escher = Escher.new('us-east-1/host/aws4_request', ESCHER_AWS4_OPTIONS.merge(current_time: Time.parse(date)))
         headers_to_sign = headers.map {|k| k[0].downcase }
-        auth_header = escher.generate_auth_header(client, method, host, request_uri, body, headers, headers_to_sign)
+        auth_header = escher.generate_auth_header(client, method, request_uri, body, headers, headers_to_sign)
         expect(auth_header).to eq(fixture(suite, test, 'authz'))
       end
     end
   end
 
+  it 'should sign request' do
+    escher = Escher.new('us-east-1/iam/aws4_request', ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('20110909T233600Z')))
+    client = { :api_key_id => 'AKIDEXAMPLE', :api_secret => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY' }
+
+    input_headers = {
+      'content-type' => 'application/x-www-form-urlencoded; charset=utf-8'
+    }
+
+    expected_headers = {
+      'content-type' => 'application/x-www-form-urlencoded; charset=utf-8',
+      'host'         => 'iam.amazonaws.com',
+      'x-ems-date'   => '20110909T233600Z',
+      'x-ems-auth'   => 'EMS-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/iam/aws4_request, SignedHeaders=content-type;host;x-ems-date, Signature=f36c21c6e16a71a6e8dc56673ad6354aeef49c577a22fd58a190b5fcf8891dbd',
+    }
+    headers_to_sign = %w(content-type)
+
+    request = {
+      method: 'POST',
+      uri: 'http://iam.amazonaws.com/',
+      body: 'Action=ListUsers&Version=2010-05-08',
+      headers: input_headers,
+    }
+
+    downcase = escher.sign!(request, client, headers_to_sign)[:headers].map { |k, v| { k.downcase => v } }.reduce({}, &:merge)
+    expect(downcase).to eq expected_headers
+  end
+
   it 'should generate presigned url' do
-    escher = Escher.new('us-east-1/host/aws4_request', ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('2011/05/11 12:00:00 UTC')))
+    escher = Escher.new('us-east-1/host/aws4_request', ESCHER_MIXED_OPTIONS.merge(current_time: Time.parse('2011/05/11 12:00:00 UTC')))
     expected_url =
         'http://example.com/something?foo=bar&' + 'baz=barbaz&' +
             'X-EMS-Algorithm=EMS-HMAC-SHA256&' +
@@ -123,7 +152,7 @@ describe 'Escher' do
   end
 
   it 'should validate presigned url' do
-    escher = Escher.new('us-east-1/host/aws4_request', ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('2011/05/12 21:59:00 UTC')))
+    escher = Escher.new('us-east-1/host/aws4_request', ESCHER_MIXED_OPTIONS.merge(current_time: Time.parse('2011/05/12 21:59:00 UTC')))
     presigned_uri =
         '/something?foo=bar&' + 'baz=barbaz&' +
           'X-EMS-Algorithm=EMS-HMAC-SHA256&' +
@@ -143,7 +172,7 @@ describe 'Escher' do
   end
 
   it 'should validate expiration' do
-    escher = Escher.new('us-east-1/host/aws4_request', ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('2011/05/12 22:20:00 UTC')))
+    escher = Escher.new('us-east-1/host/aws4_request', ESCHER_MIXED_OPTIONS.merge(current_time: Time.parse('2011/05/12 22:20:00 UTC')))
     presigned_uri =
         '/something?foo=bar&' + 'baz=barbaz&' +
           'X-EMS-Algorithm=EMS-HMAC-SHA256&' +

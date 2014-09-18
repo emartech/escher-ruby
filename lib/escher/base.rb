@@ -21,13 +21,26 @@ class Escher
     @clock_skew       = options[:clock_skew]       || 900
   end
 
-  def sign!(req, client)
-    request = EscherRequest.new(req)
-    auth_header = generate_auth_header(client, request.method, uri_parsed.host, uri_parsed.path, request.body || '', request.to_enum.to_a, [])
+  def sign!(request, client, headers_to_sign = [])
+    uri = Addressable::URI.parse(request[:uri])
+    body = request[:body] || ''
+    headers = request[:headers].map {|k, v| {k.downcase => v} }.reduce({}, &:merge)
 
-    request.set_header('Host', request.host) # TODO: we shouldn't remove port from Host here
-    request.set_header(@date_header_name, format_date_for_header)
-    request.set_header(@auth_header_name, auth_header)
+    host = headers['host'] || uri.host || request[:host]
+
+    unless headers.has_key? 'host'
+      headers['host'] = host
+    end
+    unless headers.has_key? @date_header_name
+      headers[@date_header_name] = format_date_for_header
+    end
+
+    headers_to_sign |= [@date_header_name.downcase, 'host']
+
+
+    auth_header = generate_auth_header(client, request[:method], uri.path + (uri.query ? '?' + uri.query : ''), body, headers.map { |k, v| [k, v] }, headers_to_sign)
+
+    request[:headers] = headers.merge(@auth_header_name => auth_header)
     request
   end
 
@@ -101,10 +114,8 @@ class Escher
     )
   end
 
-  def generate_auth_header(client, method, host, request_uri, body, headers, headers_to_sign)
+  def generate_auth_header(client, method, request_uri, body, headers, headers_to_sign)
     path, query_parts = parse_uri(request_uri)
-    headers = add_defaults_to(headers, host)
-    headers_to_sign |= [@date_header_name.downcase, 'host']
     signature = generate_signature(client[:api_secret], body, headers, method, headers_to_sign, path, query_parts)
     "#{get_algorithm_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{prepare_headers_to_sign headers_to_sign}, Signature=#{signature}"
   end
@@ -182,19 +193,8 @@ class Escher
     Digest::HMAC.hexdigest(string_to_sign, signing_key, create_algo)
   end
 
-  def add_defaults_to(headers, host)
-    [['host', host], [@date_header_name, format_date_for_header]]
-      .each { |k, v| headers = add_if_missing headers, k, v }
-    headers
-  end
-
   def format_date_for_header
     @date_header_name.downcase == 'date' ? @current_time.utc.rfc2822.sub('-0000', 'GMT') : long_date(@current_time)
-  end
-
-  def add_if_missing(headers, header_to_find, value)
-    headers += [header_to_find, value] unless headers.find { |header| header[0].downcase == header_to_find.downcase }
-    headers
   end
 
   def canonicalize(method, path, query_parts, body, headers, headers_to_sign)    [

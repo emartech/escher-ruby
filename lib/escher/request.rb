@@ -3,7 +3,9 @@ class EscherRequest
 
   def initialize(request)
     @request = request
-    @request_uri = Addressable::URI.parse(uri)
+    request_uri = Addressable::URI.parse(uri)
+    raise "Invalid request URI: #{request_uri}" unless request_uri
+    @request_uri = request_uri
     prepare_request_headers
   end
 
@@ -64,6 +66,10 @@ class EscherRequest
       else
         @request.body
     end
+  end
+
+  def host
+    @request_uri.host
   end
 
   def path
