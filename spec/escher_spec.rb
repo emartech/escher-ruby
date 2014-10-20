@@ -103,8 +103,14 @@ describe 'Escher' do
         method, request_uri, body, headers, date = read_request(suite, test)
         escher = Escher.new('us-east-1/host/aws4_request', ESCHER_AWS4_OPTIONS.merge(current_time: Time.parse(date)))
         headers_to_sign = headers.map {|k| k[0].downcase }
-        auth_header = escher.generate_auth_header(client, method, request_uri, body, headers, headers_to_sign)
-        expect(auth_header).to eq(fixture(suite, test, 'authz'))
+        request = {
+          method: method,
+          uri: request_uri,
+          body: body,
+          headers: headers,
+        }
+        signed_headers = escher.sign!(request, client, headers_to_sign)[:headers].map { |k, v| { k.downcase => v } }.reduce({}, &:merge)
+        expect(signed_headers['authorization']).to eq(fixture(suite, test, 'authz'))
       end
     end
   end
@@ -113,9 +119,10 @@ describe 'Escher' do
     escher = Escher.new('us-east-1/iam/aws4_request', ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('20110909T233600Z')))
     client = { :api_key_id => 'AKIDEXAMPLE', :api_secret => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY' }
 
-    input_headers = {
-      'content-type' => 'application/x-www-form-urlencoded; charset=utf-8'
-    }
+    input_headers = [
+      ['host', 'iam.amazonaws.com'],
+      ['content-type', 'application/x-www-form-urlencoded; charset=utf-8'],
+    ]
 
     expected_headers = {
       'content-type' => 'application/x-www-form-urlencoded; charset=utf-8',
@@ -127,7 +134,7 @@ describe 'Escher' do
 
     request = {
       method: 'POST',
-      uri: 'http://iam.amazonaws.com/',
+      uri: '/',
       body: 'Action=ListUsers&Version=2010-05-08',
       headers: input_headers,
     }

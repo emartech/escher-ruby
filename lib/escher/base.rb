@@ -21,27 +21,18 @@ class Escher
     @clock_skew       = options[:clock_skew]       || 900
   end
 
-  def sign!(request, client, headers_to_sign = [])
-    uri = Addressable::URI.parse(request[:uri])
-    body = request[:body] || ''
-    headers = request[:headers].map {|k, v| {k.downcase => v} }.reduce({}, &:merge)
-
-    host = headers['host'] || uri.host || request[:host]
-
-    unless headers.has_key? 'host'
-      headers['host'] = host
-    end
-    unless headers.has_key? @date_header_name
-      headers[@date_header_name] = format_date_for_header
-    end
-
+  def sign!(req, client, headers_to_sign = [])
     headers_to_sign |= [@date_header_name.downcase, 'host']
 
+    request = EscherRequest.new(req)
+    raise EscherError, 'Missing header: Host' unless request.has_header?('host')
 
-    auth_header = generate_auth_header(client, request[:method], uri.path + (uri.query ? '?' + uri.query : ''), body, headers.map { |k, v| [k, v] }, headers_to_sign)
+    request.set_header(@date_header_name, format_date_for_header) unless request.has_header?(@date_header_name)
 
-    request[:headers] = headers.merge(@auth_header_name => auth_header)
-    request
+    signature = generate_signature(client[:api_secret], request.body, request.headers, request.method, headers_to_sign, request.path, request.query_values)
+    request.set_header(@auth_header_name, "#{get_algorithm_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{prepare_headers_to_sign headers_to_sign}, Signature=#{signature}")
+
+    request.request
   end
 
   def is_valid?(*args)
@@ -114,11 +105,6 @@ class Escher
     )
   end
 
-  def generate_auth_header(client, method, request_uri, body, headers, headers_to_sign)
-    path, query_parts = parse_uri(request_uri)
-    signature = generate_signature(client[:api_secret], body, headers, method, headers_to_sign, path, query_parts)
-    "#{get_algorithm_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{prepare_headers_to_sign headers_to_sign}, Signature=#{signature}"
-  end
 
   def generate_signed_url(url_to_sign, client, expires = 86400)
     uri = Addressable::URI.parse(url_to_sign)
@@ -154,10 +140,6 @@ class Escher
 
   def query_key_for(key)
     "X-#{@vendor_key}-#{key}"
-  end
-
-  def query_key_truncate(key)
-    key[@vendor_key.length + 3..-1]
   end
 
   def get_header(header_name, headers)
@@ -236,9 +218,9 @@ class Escher
   def create_algo
     case @hash_algo
       when 'SHA256'
-        return Digest::SHA2.new 256
+        return Digest::SHA2.new(256)
       when 'SHA512'
-        return Digest::SHA2.new 512
+        return Digest::SHA2.new(512)
       else
         raise EscherError, 'Unidentified hash algorithm'
     end
@@ -266,11 +248,9 @@ class Escher
   end
 
   def calculate_signing_key(api_secret)
-    algo = create_algo
-    signing_key = @algo_prefix + api_secret
-    key_parts = [short_date(@current_time)] + @credential_scope.split('/')
-    key_parts.each { |data|
-      signing_key = Digest::HMAC.digest(data, signing_key, algo)
+    signing_key = Digest::HMAC.digest(short_date(@current_time), @algo_prefix + api_secret, create_algo)
+    @credential_scope.split('/').each { |data|
+      signing_key = Digest::HMAC.digest(data, signing_key, create_algo)
     }
     signing_key
   end
