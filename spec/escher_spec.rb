@@ -354,10 +354,10 @@ end
 
 def read_request(suite, test, extension = 'req')
   lines = (fixture(suite, test, extension) + "\n").lines.map(&:chomp)
-  method, request_uri = lines[0].split ' '
+  method, uri = lines[0].split ' '
   headers = lines[1..-3].map { |header| k, v = header.split(':', 2); [k, v] }
-  request_body = lines[-1]
-  [method, request_uri, request_body, headers, get_date(headers), get_host(headers)]
+  body = lines[-1]
+  [method, uri, body, headers, get_date(headers), get_host(headers)]
 end
 
 def check_canonicalized_request(creq, suite, test)

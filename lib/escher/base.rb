@@ -107,7 +107,10 @@ class Escher
     uri = Addressable::URI.parse(url_to_sign)
     host = uri.host
     path = uri.path
-    query_parts = parse_query(uri.query)
+    query_parts = (uri.query || '')
+      .split('&', -1)
+      .map { |pair| pair.split('=', -1) }
+      .map { |k, v| (k.include? ' ') ? [k.str(/\S+/), ''] : [k, v] }
 
     headers = [['host', host]]
     headers_to_sign = ['host']
@@ -183,7 +186,7 @@ class Escher
       canonicalize_headers(headers, headers_to_sign).join("\n"),
       '',
       prepare_headers_to_sign(headers_to_sign),
-      @algo.new.hexdigest(body || '') # TODO: we should set the default value at the same level at every implementation
+      @algo.new.hexdigest(body)
     ].join "\n"
   end
 
@@ -193,22 +196,19 @@ class Escher
 
   def parse_uri(request_uri)
     path, query = request_uri.split '?', 2
-    return path, parse_query(query)
+    return path, (query || '')
+      .split('&', -1)
+      .map { |pair| pair.split('=', -1) }
+      .map { |k, v| (k.include? ' ') ? [k.str(/\S+/), ''] : [k, v] }
   end
 
-  def parse_query(query)
-    (query || '')
-    .split('&', -1)
-    .map { |pair| pair.split('=', -1) }
-    .map { |k, v| (k.include?' ') ? [k.str(/\S+/), ''] : [k, v] }
-  end
 
-  def get_string_to_sign(canonicalized_req)
+  def get_string_to_sign(canonicalized_request)
     [
       @algo_id,
       long_date(@current_time),
       short_date(@current_time) + '/' + @credential_scope,
-      @algo.new.hexdigest(canonicalized_req)
+      @algo.new.hexdigest(canonicalized_request)
     ].join("\n")
   end
 

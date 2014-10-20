@@ -18,17 +18,10 @@ class EscherRequest
       else
         uri = @request.uri
     end
-    uri = uri.gsub('#', '%23')
     fragments = uri.scan(URIREGEX)[0]
     @request_uri = Addressable::URI.new({
-      :scheme => nil,
-      :user => nil,
-      :password => nil,
-      :host => nil,
-      :port => nil,
       :path => fragments[0],
       :query => fragments[2],
-      :fragment => nil
     })
     raise "Invalid request URI: #{@request_uri}" unless @request_uri
   end
@@ -98,21 +91,13 @@ class EscherRequest
     end
   end
 
-  def uri
-    case @request.class.to_s
-      when 'Hash'
-        @request[:uri]
-      else
-        @request.uri
-    end
-  end
-
+  # TODO: create a test for empty body (= nil)
   def body
     case @request.class.to_s
       when 'Hash'
-        @request[:body]
+        @request[:body] || ''
       else
-        @request.body
+        @request.body || ''
     end
   end
 
