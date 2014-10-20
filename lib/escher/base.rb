@@ -246,20 +246,6 @@ class Escher
   end
 
   def canonicalize_headers(raw_headers, headers_to_sign)
-    collect_headers(raw_headers)
-      .sort
-      .select { |h| headers_to_sign.include?(h[0]) }
-      .map { |k, v| k + ':' + v.map { |piece| normalize_white_spaces piece} .join(',') }
-  end
-
-  def normalize_white_spaces(value)
-    value.strip.split('"', -1).map.with_index { |piece, index|
-      is_inside_of_quotes = (index % 2 === 1)
-      is_inside_of_quotes ? piece : piece.gsub(/\s+/, ' ')
-    }.join '"'
-  end
-
-  def collect_headers(raw_headers)
     headers = {}
     raw_headers.each do |raw_header|
       if raw_header[0].downcase != @auth_header_name.downcase
@@ -271,6 +257,16 @@ class Escher
       end
     end
     headers
+      .sort
+      .select { |h| headers_to_sign.include?(h[0]) }
+      .map { |k, v| k + ':' + v.map { |piece| normalize_white_spaces piece} .join(',') }
+  end
+
+  def normalize_white_spaces(value)
+    value.strip.split('"', -1).map.with_index { |piece, index|
+      is_inside_of_quotes = (index % 2 === 1)
+      is_inside_of_quotes ? piece : piece.gsub(/\s+/, ' ')
+    }.join '"'
   end
 
   def canonicalize_query(query_parts)
