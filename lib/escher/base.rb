@@ -19,6 +19,8 @@ class Escher
     @auth_header_name = options[:auth_header_name] || 'X-Escher-Auth'
     @date_header_name = options[:date_header_name] || 'X-Escher-Date'
     @clock_skew       = options[:clock_skew]       || 900
+    @algo             = create_algo
+    @algo_id          = @algo_prefix + '-HMAC-' + @hash_algo
   end
 
   def sign!(req, client, headers_to_sign = [])
@@ -30,7 +32,7 @@ class Escher
     request.set_header(@date_header_name, format_date_for_header) unless request.has_header?(@date_header_name)
 
     signature = generate_signature(client[:api_secret], request.body, request.headers, request.method, headers_to_sign, request.path, request.query_values)
-    request.set_header(@auth_header_name, "#{get_algorithm_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{prepare_headers_to_sign headers_to_sign}, Signature=#{signature}")
+    request.set_header(@auth_header_name, "#{@algo_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{prepare_headers_to_sign headers_to_sign}, Signature=#{signature}")
 
     request.request
   end
@@ -54,7 +56,9 @@ class Escher
 
     signature_from_query = get_signing_param('Signature', query_parts)
 
-    validate_headers(headers, !signature_from_query)
+    (['Host'] + (signature_from_query ? [] : [@auth_header_name, @date_header_name])).each do |header|
+      raise EscherError, 'Missing header: ' + header unless get_header(header, headers)
+    end
 
     if method == 'GET' && signature_from_query
       raw_date = get_signing_param('Date', query_parts)
@@ -87,12 +91,6 @@ class Escher
     api_key_id
   end
 
-  def validate_headers(headers, authenticated_by_header)
-    (['Host'] + (authenticated_by_header ? [@auth_header_name, @date_header_name] : [])).each do |header|
-      raise EscherError, 'Missing header: ' + header unless get_header(header, headers)
-    end
-  end
-
   def reconfig(algorithm, credential_scope, date)
     Escher.new(
         credential_scope,
@@ -105,10 +103,8 @@ class Escher
     )
   end
 
-
   def generate_signed_url(url_to_sign, client, expires = 86400)
     uri = Addressable::URI.parse(url_to_sign)
-    protocol = uri.scheme
     host = uri.host
     path = uri.path
     query_parts = parse_query(uri.query)
@@ -116,22 +112,18 @@ class Escher
     headers = [['host', host]]
     headers_to_sign = ['host']
     body = 'UNSIGNED-PAYLOAD'
-    query_parts += get_signing_params(client, expires, headers_to_sign)
+    query_parts += [
+      ['Algorithm', @algo_id],
+      ['Credentials', "#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}"],
+      ['Date', long_date(@current_time)],
+      ['Expires', expires.to_s],
+      ['SignedHeaders', headers_to_sign.join(';')],
+    ].map { |k, v| query_pair(k, v) }
 
     signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
     query_parts_with_signature = (query_parts.map { |k, v| [uri_encode(k), uri_encode(v)] } << query_pair('Signature', signature))
 
-    protocol + '://' + host + path + '?' + query_parts_with_signature.map { |k, v| k + '=' + v }.join('&')
-  end
-
-  def get_signing_params(client, expires, headers_to_sign)
-    [
-        ['Algorithm', get_algorithm_id],
-        ['Credentials', "#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}"],
-        ['Date', long_date(@current_time)],
-        ['Expires', expires.to_s],
-        ['SignedHeaders', headers_to_sign.join(';')],
-    ].map { |k, v| query_pair(k, v) }
+    uri.scheme + '://' + host + path + '?' + query_parts_with_signature.map { |k, v| k + '=' + v }.join('&')
   end
 
   def query_pair(k, v)
@@ -171,8 +163,13 @@ class Escher
   def generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
     canonicalized_request = canonicalize(method, path, query_parts, body, headers, signed_headers.uniq)
     string_to_sign = get_string_to_sign(canonicalized_request)
-    signing_key = calculate_signing_key(api_secret)
-    Digest::HMAC.hexdigest(string_to_sign, signing_key, create_algo)
+
+    signing_key = Digest::HMAC.digest(short_date(@current_time), @algo_prefix + api_secret, @algo)
+    @credential_scope.split('/').each { |data|
+      signing_key = Digest::HMAC.digest(data, signing_key, @algo)
+    }
+
+    Digest::HMAC.hexdigest(string_to_sign, signing_key, @algo)
   end
 
   def format_date_for_header
@@ -186,7 +183,7 @@ class Escher
       canonicalize_headers(headers, headers_to_sign).join("\n"),
       '',
       prepare_headers_to_sign(headers_to_sign),
-      create_algo.new.hexdigest(body || '') # TODO: we should set the default value at the same level at every implementation
+      @algo.new.hexdigest(body || '') # TODO: we should set the default value at the same level at every implementation
     ].join "\n"
   end
 
@@ -208,19 +205,19 @@ class Escher
 
   def get_string_to_sign(canonicalized_req)
     [
-      get_algorithm_id,
+      @algo_id,
       long_date(@current_time),
       short_date(@current_time) + '/' + @credential_scope,
-      create_algo.new.hexdigest(canonicalized_req)
+      @algo.new.hexdigest(canonicalized_req)
     ].join("\n")
   end
 
   def create_algo
     case @hash_algo
       when 'SHA256'
-        return Digest::SHA2.new(256)
+        @algo = Digest::SHA2.new(256)
       when 'SHA512'
-        return Digest::SHA2.new(512)
+        @algo = Digest::SHA2.new(512)
       else
         raise EscherError, 'Unidentified hash algorithm'
     end
@@ -238,21 +235,9 @@ class Escher
     (request_date - @clock_skew .. request_date + expires + @clock_skew).cover? @current_time
   end
 
-  def get_algorithm_id
-    @algo_prefix + '-HMAC-' + @hash_algo
-  end
-
   def parse_algo(algorithm)
     m = /^#{@algo_prefix}-HMAC-(?<algo>[A-Z0-9\,]+)$/.match(algorithm)
     m && m['algo']
-  end
-
-  def calculate_signing_key(api_secret)
-    signing_key = Digest::HMAC.digest(short_date(@current_time), @algo_prefix + api_secret, create_algo)
-    @credential_scope.split('/').each { |data|
-      signing_key = Digest::HMAC.digest(data, signing_key, create_algo)
-    }
-    signing_key
   end
 
   def canonicalize_path(path)
