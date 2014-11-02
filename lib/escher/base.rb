@@ -1,10 +1,3 @@
-require 'escher/version'
-
-require 'time'
-require 'digest'
-require 'pathname'
-require 'addressable/uri'
-
 class EscherError < RuntimeError
 end
 

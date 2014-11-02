@@ -1,4 +1,3 @@
-
 class EscherRequest
 
   # based on the example in RFC 3986, but scheme, user, password,
