@@ -19,10 +19,10 @@ module Escher
     def sign!(req, client, headers_to_sign = [])
       headers_to_sign |= [@date_header_name.downcase, 'host']
 
-      request = Escher::Request.new(req)
-      raise EscherError, 'Missing header: Host' unless request.has_header?('host')
+      request = wrap_request req
+      raise EscherError, 'Missing header: Host' unless request.has_header? 'host'
 
-      request.set_header(@date_header_name, format_date_for_header) unless request.has_header?(@date_header_name)
+      request.set_header(@date_header_name, format_date_for_header) unless request.has_header? @date_header_name
 
       signature = generate_signature(client[:api_secret], request.body, request.headers, request.method, headers_to_sign, request.path, request.query_values)
       request.set_header(@auth_header_name, "#{@algo_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{prepare_headers_to_sign headers_to_sign}, Signature=#{signature}")
@@ -44,7 +44,7 @@ module Escher
 
 
     def authenticate(req, key_db)
-      request = Escher::Request.new(req)
+      request = wrap_request req
       method = request.method
       body = request.body
       headers = request.headers
@@ -54,7 +54,7 @@ module Escher
       signature_from_query = get_signing_param('Signature', query_parts)
 
       (['Host'] + (signature_from_query ? [] : [@auth_header_name, @date_header_name])).each do |header|
-        raise EscherError, 'Missing header: ' + header unless get_header(header, headers)
+        raise EscherError, 'Missing header: ' + header unless request.header header
       end
 
       if method == 'GET' && signature_from_query
@@ -65,8 +65,8 @@ module Escher
         query_parts.delete [query_key_for('Signature'), signature]
         query_parts = query_parts.map { |k, v| [uri_decode(k), uri_decode(v)] }
       else
-        raw_date = get_header(@date_header_name, headers)
-        auth_header = get_header(@auth_header_name, headers)
+        raw_date = request.header @date_header_name
+        auth_header = request.header @auth_header_name
         algorithm, api_key_id, short_date, credential_scope, signed_headers, signature, expires = get_auth_parts_from_header(auth_header)
       end
 
@@ -140,13 +140,6 @@ module Escher
 
     def query_key_for(key)
       "X-#{@vendor_key}-#{key}"
-    end
-
-
-
-    def get_header(header_name, headers)
-      the_header = (headers.detect { |header| header[0].downcase == header_name.downcase })
-      the_header ? the_header[1] : nil
     end
 
 
@@ -330,6 +323,15 @@ module Escher
     def uri_decode(component)
       Addressable::URI.unencode_component(component)
     end
+
+
+
+    private
+
+    def wrap_request(request)
+      Escher::Request::Factory.from_request request
+    end
+
   end
 
 

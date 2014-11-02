@@ -2,6 +2,6 @@ require 'addressable/uri'
 require 'time'
 require 'digest'
 
-require 'escher/auth'
 require 'escher/version'
-require 'escher/request'
+require 'escher/request/factory'
+require 'escher/auth'
