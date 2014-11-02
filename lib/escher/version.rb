@@ -1,3 +1,3 @@
-class Escher
+module Escher
   VERSION = '0.2.1'
 end
