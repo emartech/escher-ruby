@@ -12,7 +12,7 @@ module Escher
         case request
           when Hash
             HashRequest.new request
-          when -> (request) { request.class.ancestors.map(&:to_s).include? "Rack::Request" }
+          when lambda { |request| request.class.ancestors.map(&:to_s).include? "Rack::Request" }
             RackRequest.new request
           else
             Escher::Request::LegacyRequest.new request
