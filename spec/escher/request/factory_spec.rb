@@ -1,10 +1,12 @@
 require 'spec_helper'
+require 'rack/request'
 
 describe Escher::Request::Factory do
 
   describe ".from_request" do
     {{uri: "request uri"} => Escher::Request::HashRequest,
-     Struct.new(:uri) => Escher::Request::LegacyRequest}
+     Struct.new(:uri) => Escher::Request::LegacyRequest,
+     Rack::Request.new({}) => Escher::Request::RackRequest}
     .each do |request, expected_class|
 
       it "should return a #{expected_class.name} when the request to be wrapped is a #{request.class.name}" do

@@ -1,8 +1,11 @@
 require 'spec_helper'
+require 'rack/request'
 
-describe Escher::Request::HashRequest do
+describe Escher::Request::RackRequest do
 
-  let(:request) { {headers: [], uri: '/'} }
+  let(:request_params) { {"PATH_INFO" => "/", } }
+  let(:request) { Rack::Request.new request_params }
+
   subject { described_class.new request }
 
 
@@ -14,21 +17,26 @@ describe Escher::Request::HashRequest do
 
 
   describe "#headers" do
-    it "should return the request headers" do
-      request[:headers] = [['HOST', 'some host'],
-                           ['SOME_HEADER', 'some header']]
+    it "should return only the HTTP request headers" do
+      request_params.merge! 'HTTP_HOST' => 'some host',
+                            'SOME_HEADER' => 'some header'
 
-      expect(subject.headers).to eq [['HOST', 'some host'],
-                                     ['SOME-HEADER', 'some header']]
+      expect(subject.headers).to eq [['HOST', 'some host']]
+    end
+
+    it "should replace underscores with dashes in the header name" do
+      request_params.merge! 'HTTP_HOST_NAME' => 'some host'
+
+      expect(subject.headers).to eq [['HOST-NAME', 'some host']]
     end
   end
 
 
   describe "#has_header?" do
     it "should return true if request has specified header, false otherwise" do
-      request[:headers] = [['HOST', 'some host']]
+      request_params.merge! 'HTTP_HOST_NAME' => 'some host'
 
-      expect(subject.has_header? 'host').to be_truthy
+      expect(subject.has_header? 'host-name').to be_truthy
       expect(subject.has_header? 'no-such-header').to be_falsey
     end
   end
@@ -36,7 +44,7 @@ describe Escher::Request::HashRequest do
 
   describe "#header" do
     it "should return the value for the requested header" do
-      request[:headers] = [['HOST', 'some host']]
+      request_params.merge! 'HTTP_HOST' => 'some host'
 
       expect(subject.header 'host').to eq 'some host'
     end
@@ -47,32 +55,17 @@ describe Escher::Request::HashRequest do
   end
 
 
-  describe "#set_header" do
-    it "should add the specified header to the request" do
-      subject.set_header 'TEST_HEADER', 'test value'
-
-      expect(subject.has_header? 'test-header').to be_truthy
-      expect(subject.header 'test-header').to eq 'test value'
-    end
-
-    it "should return nil if no such header exists" do
-      expect(subject.header 'no-such-header').to be_nil
-    end
-  end
-
-
   describe "#method" do
     it "should return the request method" do
-      request[:method] = 'GET'
+      request_params.merge! 'REQUEST_METHOD' => 'GET'
 
-      expect(subject.method).to eq 'GET'
-    end
+      expect(subject.method).to eq 'GET'    end
   end
 
 
   describe "#body" do
     it "should return the request body" do
-      request[:body] = 'request body'
+      request_params.merge! 'rack.input' => 'request body'
 
       expect(subject.body).to eq 'request body'
     end
@@ -85,36 +78,35 @@ describe Escher::Request::HashRequest do
 
   describe "#path" do
     it "should return the request path" do
-      request[:uri] = '/resources/id?search=query'
+      request_params.merge! 'REQUEST_PATH' => '/resources/id///'
 
-      expect(subject.path).to eq '/resources/id'
-    end
-
-    it "should return the original path unnormalized" do
-      request[:uri] = '//'
-
-      expect(subject.path).to eq '//'
+      expect(subject.path).to eq '/resources/id///'
     end
   end
 
 
   describe "#query_values" do
     it "should return the request query parameters as an array of key-value pairs" do
-      request[:uri] = '/resources/id?search=query&param=value'
+      request_params.merge! 'QUERY_STRING' => 'search=query&param=value'
 
       expect(subject.query_values).to eq [['search', 'query'], ['param', 'value']]
     end
 
     it "should return the query parameters regardless of fragments" do
-      request[:uri] = "/?@\#$%^&+=/,?><`\";:\\|][{}"
+      request_params.merge! 'QUERY_STRING' => "@\#$%^&+=/,?><`\";:\\|][{}"
 
       expect(subject.query_values).to eq [["@\#$%^"], ["+", "/,?><`\";:\\|][{}"]]
     end
 
     it "should return an empty array if the request has no query parameters" do
-      request[:uri] = '/resources/id'
-
       expect(subject.query_values).to eq []
+    end
+  end
+
+
+  describe "#set_header" do
+    it "should ignore calls" do
+      expect { subject.set_header 'test-header', 'test value' }.not_to raise_error
     end
   end
 

@@ -1,17 +1,15 @@
 module Escher
   module Request
-    class HashRequest
+    class HashRequest < Base
 
       # Based on the example in RFC 3986, but scheme, user, password,
       # host, port and fragment support removed, only path and query left
       URI_REGEXP = /^([^?#]*)(\?(.*))?$/
 
-      attr_reader :request
-
 
 
       def initialize(request)
-        @request = request
+        super request
         @uri = parse_uri request[:uri]
       end
 
@@ -19,20 +17,6 @@ module Escher
 
       def headers
         request[:headers].map { |(header_name, value)| [header_name.gsub('_', '-'), value] }
-      end
-
-
-
-      def has_header?(name)
-        not header(name).nil?
-      end
-
-
-
-      def header(name)
-        header = headers.find { |(header_name, _)| header_name.downcase == name.downcase }
-        return nil if header.nil?
-        header[1]
       end
 
 
