@@ -9,10 +9,10 @@ module Escher
     class Factory
 
       def self.from_request(request)
-        case request.class.to_s
-          when 'Hash'
+        case request
+          when Hash
             HashRequest.new request
-          when 'Rack::Request'
+          when -> (request) { request.class.ancestors.map(&:to_s).include? "Rack::Request" }
             RackRequest.new request
           else
             Escher::Request::LegacyRequest.new request
