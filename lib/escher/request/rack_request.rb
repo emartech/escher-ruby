@@ -27,9 +27,11 @@ module Escher
       end
 
 
+
       def query_values
         Addressable::URI.new(:query => request.env['QUERY_STRING']).query_values(Array) or []
       end
+
 
 
       def set_header(header_name, value)

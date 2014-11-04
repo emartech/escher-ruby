@@ -59,7 +59,8 @@ describe Escher::Request::RackRequest do
     it "should return the request method" do
       request_params.merge! 'REQUEST_METHOD' => 'GET'
 
-      expect(subject.method).to eq 'GET'    end
+      expect(subject.method).to eq 'GET'
+    end
   end
 
 
