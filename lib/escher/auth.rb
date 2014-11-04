@@ -1,7 +1,7 @@
 module Escher
   class Auth
 
-    def initialize(credential_scope, options)
+    def initialize(credential_scope, options = {})
       @credential_scope = credential_scope
       @algo_prefix = options[:algo_prefix] || 'ESR'
       @vendor_key = options[:vendor_key] || 'Escher'
