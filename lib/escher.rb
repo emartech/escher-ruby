@@ -1,3 +1,7 @@
-require 'escher/base'
+require 'addressable/uri'
+require 'time'
+require 'digest'
+
 require 'escher/version'
-require 'escher/request'
+require 'escher/request/factory'
+require 'escher/auth'
