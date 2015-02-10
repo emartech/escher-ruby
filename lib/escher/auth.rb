@@ -112,6 +112,7 @@ module Escher
       .split('&', -1)
       .map { |pair| pair.split('=', -1) }
       .map { |k, v| (k.include? ' ') ? [k.str(/\S+/), ''] : [k, v] }
+      fragment = uri.fragment
 
       headers = [['host', host]]
       headers_to_sign = ['host']
@@ -127,7 +128,7 @@ module Escher
       signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
       query_parts_with_signature = (query_parts.map { |k, v| [uri_encode(k), uri_encode(v)] } << query_pair('Signature', signature))
 
-      uri.scheme + '://' + host + path + '?' + query_parts_with_signature.map { |k, v| k + '=' + v }.join('&')
+      uri.scheme + '://' + host + path + '?' + query_parts_with_signature.map { |k, v| k + '=' + v }.join('&') + (fragment === nil ? '' : '#' + fragment)
     end
 
 

@@ -172,6 +172,23 @@ module Escher
     end
 
 
+    it 'should generate presigned url with hash parameters' do
+      escher = described_class.new('us-east-1/host/aws4_request', ESCHER_MIXED_OPTIONS.merge(current_time: Time.parse('2011/05/11 12:00:00 UTC')))
+      expected_url =
+        'http://example.com/something?foo=bar&' + 'baz=barbaz&' +
+          'X-EMS-Algorithm=EMS-HMAC-SHA256&' +
+          'X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&' +
+          'X-EMS-Date=20110511T120000Z&' +
+          'X-EMS-Expires=123456&' +
+          'X-EMS-SignedHeaders=host&' +
+          'X-EMS-Signature=fbc9dbb91670e84d04ad2ae7505f4f52ab3ff9e192b8233feeae57e9022c2b67' +
+          '#hash'
+
+      client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
+      expect(escher.generate_signed_url('http://example.com/something?foo=bar&baz=barbaz#hash', client, 123456)).to eq expected_url
+    end
+
+
     it 'should validate presigned url' do
       escher = described_class.new('us-east-1/host/aws4_request', ESCHER_MIXED_OPTIONS.merge(current_time: Time.parse('2011/05/12 21:59:00 UTC')))
       presigned_uri =
