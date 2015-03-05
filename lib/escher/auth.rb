@@ -176,12 +176,12 @@ module Escher
       canonicalized_request = canonicalize(method, path, query_parts, body, headers, signed_headers.uniq)
       string_to_sign = get_string_to_sign(canonicalized_request)
 
-      signing_key = Digest::HMAC.digest(short_date(@current_time), @algo_prefix + api_secret, @algo)
+      signing_key = OpenSSL::HMAC.digest(@algo, @algo_prefix + api_secret, short_date(@current_time))
       @credential_scope.split('/').each { |data|
-        signing_key = Digest::HMAC.digest(data, signing_key, @algo)
+        signing_key = OpenSSL::HMAC.digest(@algo, signing_key, data)
       }
 
-      Digest::HMAC.hexdigest(string_to_sign, signing_key, @algo)
+      OpenSSL::HMAC.hexdigest(@algo, signing_key, string_to_sign)
     end
 
 
@@ -236,9 +236,9 @@ module Escher
     def create_algo
       case @hash_algo
         when 'SHA256'
-          @algo = Digest::SHA2.new(256)
+          @algo = OpenSSL::Digest::SHA256.new
         when 'SHA512'
-          @algo = Digest::SHA2.new(512)
+          @algo = OpenSSL::Digest::SHA521.new
         else
           raise EscherError, 'Unidentified hash algorithm'
       end

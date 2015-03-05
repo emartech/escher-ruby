@@ -1,6 +1,6 @@
 require 'addressable/uri'
 require 'time'
-require 'digest'
+require 'openssl'
 
 require 'escher/version'
 require 'escher/request/factory'
