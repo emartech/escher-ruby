@@ -5,4 +5,4 @@ Escher helps you creating secure HTTP requests (for APIs) by signing HTTP(s) req
 
 The algorithm is based on [Amazon's _AWS Signature Version 4_](http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html), but we have generalized and extended it.
 
-More details will be available at our [documentation site](https://documentation.emarsys.com/).
+More details will be available at our [documentation site](http://escherauth.io/).
