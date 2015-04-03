@@ -1,15 +1,13 @@
 require 'spec_helper'
 
-require 'rack'
-require 'rack/request'
+require 'action_dispatch'
 
-describe Escher::Request::RackRequest do
+describe Escher::Request::ActionDispatchRequest do
 
   let(:request_params) { {"PATH_INFO" => "/", } }
-  let(:request) { Rack::Request.new request_params }
+  let(:request) { ActionDispatch::Request.new(request_params) }
 
   subject { described_class.new request }
-
 
   describe "#request" do
     it "should return the underlying request object" do

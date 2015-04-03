@@ -24,6 +24,39 @@ module Escher
         header[1]
       end
 
+
+
+      def method
+        raise("Implementation missing for #{__method__}")
+      end
+
+
+
+      def body
+        raise("Implementation missing for #{__method__}")
+      end
+
+
+
+      def headers
+        raise('Implementation missing, should return array of array with [key,value] pairs')
+      end
+
+
+
+      def path
+        raise("Implementation missing for #{__method__}")
+      end
+
+
+
+      def query_values
+        raise("Implementation missing for #{__method__}")
+      end
+
+
+
+
     end
   end
 end
