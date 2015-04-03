@@ -1,42 +1,62 @@
-module Escher
-  module Request
-    class RackRequest < Base
+class Escher::Request::RackRequest < Escher::Request::Base
 
-      def headers
-        request.env.
-          select { |header_name, _| header_name.start_with? "HTTP_" }.
-          map { |header_name, value| [header_name[5..-1].tr('_', '-'), value] }
-      end
-
-
-
-      def method
-        request.request_method
-      end
-
-
-
-      def body
-        request.body or ''
-      end
-
-
-
-      def path
-        request.env['REQUEST_PATH']
-      end
-
-
-
-      def query_values
-        Addressable::URI.new(:query => request.env['QUERY_STRING']).query_values(Array) or []
-      end
-
-
-
-      def set_header(header_name, value)
-      end
-
-    end
+  def initialize(request_env)
+    super(request_env)
+    @rack_request = request_env
   end
+
+  def env
+    @rack_request.env
+  end
+
+  def rack_request
+    @rack_request
+  end
+
+  def uri
+    @rack_request.env['REQUEST_URI']
+  end
+
+  def path
+    @rack_request.env['REQUEST_PATH']
+  end
+
+  def host
+    @rack_request.env['HTTP_HOST']
+  end
+
+  def headers
+    @headers ||= @rack_request.env.select { |k, v| k =~ /^HTTP_/i }.map { |k, v| [k.sub(/^HTTP_/i, '').gsub('_', '-'), v] }
+  end
+
+  def method
+    @rack_request.request_method rescue @rack_request.env['REQUEST_METHOD']
+  end
+
+  def payload
+    @payload ||= fetch_payload
+  end
+
+  alias body payload
+
+  def query_values
+    Addressable::URI.new(:query => request.env['QUERY_STRING']).query_values(Array) or []
+  end
+
+  def set_header(header_name, value)
+  end
+
+  protected
+
+  def fetch_payload
+    rack_input = @rack_request.body
+
+    return rack_input.to_s if rack_input.nil? || rack_input.is_a?(String)
+
+    payload = rack_input.read
+    @rack_request.body.rewind
+    payload
+
+  end
+
 end
