@@ -106,7 +106,13 @@ module Escher
 
     def generate_signed_url(url_to_sign, client, expires = 86400)
       uri = Addressable::URI.parse(url_to_sign)
-      host = uri.host
+
+      if (uri.port.present?) && (uri.port != uri.default_port)
+        host = "#{uri.host}:#{uri.port}"
+      else
+        host = uri.host
+      end
+
       path = uri.path
       query_parts = (uri.query || '')
       .split('&', -1)
@@ -128,7 +134,7 @@ module Escher
       signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
       query_parts_with_signature = (query_parts.map { |k, v| [uri_encode(k), uri_encode(v)] } << query_pair('Signature', signature))
 
-      uri.scheme + '://' + host + path + '?' + query_parts_with_signature.map { |k, v| k + '=' + v }.join('&') + (fragment === nil ? '' : '#' + fragment)
+      "#{uri.scheme}://#{host}#{path}?#{query_parts_with_signature.map { |k, v| k + '=' + v }.join('&')}#{(fragment === nil ? '' : '#' + fragment)}"
     end
 
 

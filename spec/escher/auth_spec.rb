@@ -189,6 +189,22 @@ module Escher
     end
 
 
+    [
+        ['http://iam.amazonaws.com:5000/', 'iam.amazonaws.com:5000'],
+        ['https://iam.amazonaws.com:5000/', 'iam.amazonaws.com:5000'],
+        ['http://iam.amazonaws.com:80/', 'iam.amazonaws.com'],
+        ['https://iam.amazonaws.com:443/', 'iam.amazonaws.com'],
+        ['http://iam.amazonaws.com:443/', 'iam.amazonaws.com:443'],
+        ['https://iam.amazonaws.com:80/', 'iam.amazonaws.com:80']
+    ].each do |input, expected_output|
+      it 'should automagically handle ports' do
+        escher = described_class.new('us-east-1/host/aws4_request', ESCHER_MIXED_OPTIONS.merge(current_time: Time.parse('2011/05/11 12:00:00 UTC')))
+        client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
+        expect(escher.generate_signed_url("#{input}something?foo=bar&baz=barbaz#hash", client, 123456)).to include expected_output
+      end
+    end
+
+
     it 'should validate presigned url' do
       escher = described_class.new('us-east-1/host/aws4_request', ESCHER_MIXED_OPTIONS.merge(current_time: Time.parse('2011/05/12 21:59:00 UTC')))
       presigned_uri =
