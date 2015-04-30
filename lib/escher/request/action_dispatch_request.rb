@@ -17,13 +17,18 @@ module Escher
 
 
       def body
-        request.body or ''
+        case request.body
+        when StringIO
+          request.body.string
+        else
+          request.body.to_s
+        end
       end
 
 
 
       def path
-        request.env['REQUEST_PATH']
+        request.env['REQUEST_PATH'] || request.path
       end
 
 
