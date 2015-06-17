@@ -118,6 +118,7 @@ module Escher
       .split('&', -1)
       .map { |pair| pair.split('=', -1) }
       .map { |k, v| (k.include? ' ') ? [k.str(/\S+/), ''] : [k, v] }
+      .map { |k, v| [uri_decode(k), uri_decode(v)] }
       fragment = uri.fragment
 
       headers = [['host', host]]

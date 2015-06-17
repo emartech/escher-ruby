@@ -189,6 +189,22 @@ module Escher
     end
 
 
+    it 'should generate presigned url with URL encoded array parameters' do
+      escher = described_class.new('us-east-1/host/aws4_request', ESCHER_MIXED_OPTIONS.merge(current_time: Time.parse('2011/05/11 12:00:00 UTC')))
+      expected_url =
+        'http://example.com/something?arr%5B%5C=apple&' + 'arr%5B%5C=pear&' +
+          'X-EMS-Algorithm=EMS-HMAC-SHA256&' +
+          'X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&' +
+          'X-EMS-Date=20110511T120000Z&' +
+          'X-EMS-Expires=123456&' +
+          'X-EMS-SignedHeaders=host&' +
+          'X-EMS-Signature=4d874d872a1df27f05d810592f98a3020ddfb92627043ebf255c86058fa1b93a'
+
+      client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
+      expect(escher.generate_signed_url('http://example.com/something?arr%5B%5C=apple&arr%5B%5C=pear', client, 123456)).to eq expected_url
+    end
+
+
     [
         ['http://iam.amazonaws.com:5000/', 'iam.amazonaws.com:5000'],
         ['https://iam.amazonaws.com:5000/', 'iam.amazonaws.com:5000'],
