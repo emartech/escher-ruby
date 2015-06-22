@@ -341,9 +341,4 @@ module Escher
     end
 
   end
-
-
-  class EscherError < RuntimeError
-  end
-
 end
