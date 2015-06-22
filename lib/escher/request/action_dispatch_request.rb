@@ -5,7 +5,7 @@ module Escher
       def headers
         request.env.
           select { |header_name, _| header_name.start_with? "HTTP_" }.
-          map { |header_name, value| [header_name[5..-1].tr('_', '-'), value] }
+          map { |header_name, value| [header_name[5..-1].tr('_', '-'), value] } + get_content_headers
       end
 
 
@@ -40,6 +40,12 @@ module Escher
 
 
       def set_header(header_name, value)
+      end
+
+      protected
+
+      def get_content_headers
+        %w[CONTENT_LENGTH CONTENT_TYPE].map{|env_key| [env_key,request.env[env_key]] }.select{|k,v| !v.nil? }
       end
 
     end
