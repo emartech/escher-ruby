@@ -1,5 +1,7 @@
 class Escher::Request::RackRequest < Escher::Request::Base
 
+  include Escher::Request::DCI::RackEnv
+
   def initialize(request_env)
     super(request_env)
     @rack_request = request_env
@@ -26,7 +28,7 @@ class Escher::Request::RackRequest < Escher::Request::Base
   end
 
   def headers
-    @headers ||= @rack_request.env.select { |k, v| k =~ /^HTTP_/i }.map { |k, v| [k.sub(/^HTTP_/i, '').gsub('_', '-'), v] }
+    @headers ||= @rack_request.env.select { |k, v| k =~ /^HTTP_/i }.map { |k, v| [k.sub(/^HTTP_/i, '').gsub('_', '-'), v] } + get_content_headers(env)
   end
 
   def method
