@@ -16,7 +16,7 @@ module Escher::Request::DCI::RackEnv
   end
 
   def get_constant_http_headers(env)
-    CONSTANT_HTTP_HEADER_KEYS.map { |env_key| [env_key.downcase, env[env_key]] }.select { |k, v| !v.nil? }
+    CONSTANT_HTTP_HEADER_KEYS.map { |env_key| [env_key, env[env_key]] }.select { |k, v| !v.nil? }
   end
 
   def format_headers(array)
