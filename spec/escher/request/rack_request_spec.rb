@@ -36,7 +36,7 @@ describe Escher::Request::RackRequest do
     it 'should add the content-type and content-length to the headers' do
       request_params.merge!( 'CONTENT_LENGTH' => '123', 'CONTENT_TYPE' => 'text/plain' )
 
-      expect(subject.headers).to eq [%w(CONTENT_LENGTH 123), %w(CONTENT_TYPE text/plain)]
+      expect(subject.headers).to eq [%w(CONTENT-LENGTH 123), %w(CONTENT-TYPE text/plain)]
     end
   end
 

@@ -28,7 +28,7 @@ class Escher::Request::RackRequest < Escher::Request::Base
   end
 
   def headers
-    @headers ||= @rack_request.env.select { |k, v| k =~ /^HTTP_/i }.map { |k, v| [k.sub(/^HTTP_/i, '').gsub('_', '-'), v] } + get_content_headers(env)
+    @headers ||= get_headers_by_rack_env(@rack_request.env)
   end
 
   def method
