@@ -5,9 +5,7 @@ module Escher
       include Escher::Request::DCI::RackEnv
 
       def headers
-        request.env.
-          select { |header_name, _| header_name.start_with? "HTTP_" }.
-          map { |header_name, value| [header_name[5..-1].tr('_', '-'), value] } + get_content_headers(request.env)
+        get_headers_by_rack_env(request.env)
       end
 
 

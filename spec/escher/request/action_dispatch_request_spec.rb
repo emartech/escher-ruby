@@ -33,7 +33,7 @@ describe Escher::Request::ActionDispatchRequest do
     it 'should add the content-type and content-length to the headers' do
       request_params.merge!( 'CONTENT_LENGTH' => '123', 'CONTENT_TYPE' => 'text/plain' )
 
-      expect(subject.headers).to eq [['CONTENT_LENGTH', '123'],['CONTENT_TYPE','text/plain']]
+      expect(subject.headers).to eq [%w(content-length 123), %w(content-type text/plain)]
     end
   end
 
