@@ -204,6 +204,75 @@ module Escher
       expect(escher.generate_signed_url('http://example.com/something?arr%5B%5C=apple&arr%5B%5C=pear', client, 123456)).to eq expected_url
     end
 
+    it 'should generate presigned url with URL encoded' do
+              escher = described_class.new('us-east-1/host/aws4_request', ESCHER_MIXED_OPTIONS.merge(current_time: Time.parse('2011/05/11 12:00:00 UTC')))
+              expected_url =
+                'http://example.com/something?tz=Europe%2FVienna&' +
+                  'X-EMS-Algorithm=EMS-HMAC-SHA256&' +
+                  'X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&' +
+                  'X-EMS-Date=20110511T120000Z&' +
+                  'X-EMS-Expires=123456&' +
+                  'X-EMS-SignedHeaders=host&' +
+                  'X-EMS-Signature=b73d097c8c8ea1a954ffebafec84884ce2a487b001d62ccd71787964d01df39b'
+
+              client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
+              expect(escher.generate_signed_url('http://example.com/something?tz=Europe%2FVienna', client, 123456)).to eq expected_url
+            end
+
+    it 'should validate double encoded presigned url' do
+          escher = described_class.new('us-east-1/host/aws4_request', ESCHER_MIXED_OPTIONS.merge(current_time: Time.parse('2011/05/12 21:59:00 UTC')))
+          presigned_uri =
+            '/something?tz=Europe%2FVienna&' +
+            'X-EMS-Algorithm=EMS-HMAC-SHA256&' +
+            'X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&' +
+            'X-EMS-Date=20110511T120000Z&' +
+            'X-EMS-Expires=123456&' +
+            'X-EMS-SignedHeaders=host&' +
+            'X-EMS-Signature=b73d097c8c8ea1a954ffebafec84884ce2a487b001d62ccd71787964d01df39b'
+
+          client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
+          expect { escher.authenticate({
+                                         :method => 'GET',
+                                         :headers => [%w(host example.com)],
+                                         :uri => presigned_uri,
+                                         :body => 'IRRELEVANT'
+                                       }, key_db) }.not_to raise_error
+        end
+
+    it 'should generate presigned url with double URL encoded' do
+          escher = described_class.new('us-east-1/host/aws4_request', ESCHER_MIXED_OPTIONS.merge(current_time: Time.parse('2011/05/11 12:00:00 UTC')))
+          expected_url =
+            'http://example.com/something?tz=Europe%252FVienna&' +
+              'X-EMS-Algorithm=EMS-HMAC-SHA256&' +
+              'X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&' +
+              'X-EMS-Date=20110511T120000Z&' +
+              'X-EMS-Expires=123456&' +
+              'X-EMS-SignedHeaders=host&' +
+              'X-EMS-Signature=8eeb0171cf2acc4efcb6b3ff13a53d49ab3ee98d631898608d0ebf9de7281066'
+
+          client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
+          expect(escher.generate_signed_url('http://example.com/something?tz=Europe%252FVienna', client, 123456)).to eq expected_url
+        end
+
+    it 'should validate double encoded presigned url' do
+          escher = described_class.new('us-east-1/host/aws4_request', ESCHER_MIXED_OPTIONS.merge(current_time: Time.parse('2011/05/12 21:59:00 UTC')))
+          presigned_uri =
+            '/something?tz=Europe%252FVienna&' +
+              'X-EMS-Algorithm=EMS-HMAC-SHA256&' +
+              'X-EMS-Credentials=th3K3y%2F20110511%2Fus-east-1%2Fhost%2Faws4_request&' +
+              'X-EMS-Date=20110511T120000Z&' +
+              'X-EMS-Expires=123456&' +
+              'X-EMS-SignedHeaders=host&' +
+              'X-EMS-Signature=8eeb0171cf2acc4efcb6b3ff13a53d49ab3ee98d631898608d0ebf9de7281066'
+
+          client = {:api_key_id => 'th3K3y', :api_secret => 'very_secure'}
+          expect { escher.authenticate({
+                                         :method => 'GET',
+                                         :headers => [%w(host example.com)],
+                                         :uri => presigned_uri,
+                                         :body => 'IRRELEVANT'
+                                       }, key_db) }.not_to raise_error
+        end
 
     [
         ['http://iam.amazonaws.com:5000/', 'iam.amazonaws.com:5000'],

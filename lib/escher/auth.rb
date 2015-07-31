@@ -63,7 +63,7 @@ module Escher
 
         body = 'UNSIGNED-PAYLOAD'
         query_parts.delete [query_key_for('Signature'), signature]
-        query_parts = query_parts.map { |k, v| [uri_decode(k), uri_decode(v)] }
+        query_parts = query_parts.map { |k, v| [k, v] }
       else
         raw_date = request.header @date_header_name
         auth_header = request.header @auth_header_name
@@ -134,7 +134,6 @@ module Escher
 
       signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
       query_parts_with_signature = (query_parts.map { |k, v| [uri_encode(k), uri_encode(v)] } << query_pair('Signature', signature))
-
       "#{uri.scheme}://#{host}#{path}?#{query_parts_with_signature.map { |k, v| k + '=' + v }.join('&')}#{(fragment === nil ? '' : '#' + fragment)}"
     end
 
@@ -181,6 +180,7 @@ module Escher
 
     def generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
       canonicalized_request = canonicalize(method, path, query_parts, body, headers, signed_headers.uniq)
+#       print("\n" + query_parts.join("\n") + "\n")
       string_to_sign = get_string_to_sign(canonicalized_request)
 
       signing_key = OpenSSL::HMAC.digest(@algo, @algo_prefix + api_secret, short_date(@current_time))
