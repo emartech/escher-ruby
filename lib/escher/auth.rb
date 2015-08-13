@@ -180,7 +180,6 @@ module Escher
 
     def generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
       canonicalized_request = canonicalize(method, path, query_parts, body, headers, signed_headers.uniq)
-#       print("\n" + query_parts.join("\n") + "\n")
       string_to_sign = get_string_to_sign(canonicalized_request)
 
       signing_key = OpenSSL::HMAC.digest(@algo, @algo_prefix + api_secret, short_date(@current_time))
