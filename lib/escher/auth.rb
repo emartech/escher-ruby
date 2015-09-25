@@ -20,7 +20,7 @@ module Escher
       headers_to_sign |= [@date_header_name.downcase, 'host']
 
       request = wrap_request req
-      raise EscherError, 'Missing header: Host' unless request.has_header? 'host'
+      raise EscherError, 'The host header is missing' unless request.has_header? 'host'
 
       request.set_header(@date_header_name, format_date_for_header) unless request.has_header? @date_header_name
 
@@ -54,7 +54,7 @@ module Escher
       signature_from_query = get_signing_param('Signature', query_parts)
 
       (['Host'] + (signature_from_query ? [] : [@auth_header_name, @date_header_name])).each do |header|
-        raise EscherError, 'Missing header: ' + header unless request.header header
+        raise EscherError, 'The ' + header + ' header is missing' unless request.header header
       end
 
       if method == 'GET' && signature_from_query
@@ -66,21 +66,23 @@ module Escher
         query_parts = query_parts.map { |k, v| [k, v] }
       else
         raw_date = request.header @date_header_name
+        raise EscherError, 'The ' + @date_header_name + ' header is missing' unless raw_date
         auth_header = request.header @auth_header_name
+        raise EscherError, 'The ' + @auth_header_name + ' header is missing' unless raw_date
         algorithm, api_key_id, short_date, credential_scope, signed_headers, signature, expires = get_auth_parts_from_header(auth_header)
       end
 
       date = Time.parse(raw_date)
       api_secret = key_db[api_key_id]
 
-      raise EscherError, 'Invalid API key' unless api_secret
+      raise EscherError, 'Invalid Escher key' unless api_secret
       raise EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed' unless %w(SHA256 SHA512).include?(algorithm)
-      raise EscherError, 'Invalid request date' unless short_date(date) == short_date
+      raise EscherError, 'The ' + @auth_header_name + ' header\'s shortDate does not match with the request date' unless short_date(date) == short_date
       raise EscherError, 'The request date is not within the accepted time range' unless is_date_within_range?(date, expires)
-      raise EscherError, 'Invalid credentials' unless credential_scope == @credential_scope
-      raise EscherError, 'Host header is not signed' unless signed_headers.include? 'host'
+      raise EscherError, 'The credential scope is invalid' unless credential_scope == @credential_scope
+      raise EscherError, 'The host header is not signed' unless signed_headers.include? 'host'
       raise EscherError, 'Only the host header should be signed' if signature_from_query && signed_headers != ['host']
-      raise EscherError, 'Date header is not signed' if !signature_from_query && !signed_headers.include?(@date_header_name.downcase)
+      raise EscherError, 'The date header is not signed' if !signature_from_query && !signed_headers.include?(@date_header_name.downcase)
 
       escher = reconfig(algorithm, credential_scope, date)
       expected_signature = escher.generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
@@ -161,7 +163,7 @@ module Escher
     def get_auth_parts_from_header(auth_header)
       m = /#{@algo_prefix}-HMAC-(?<algo>[A-Z0-9\,]+) Credential=(?<api_key_id>[A-Za-z0-9\-_]+)\/(?<short_date>[0-9]{8})\/(?<credentials>[A-Za-z0-9\-_\/]+), SignedHeaders=(?<signed_headers>[A-Za-z\-;]+), Signature=(?<signature>[0-9a-f]+)$/
       .match auth_header
-      raise EscherError, 'Malformed authorization header' unless m && m['credentials']
+      raise EscherError, 'Could not parse auth header' unless m && m['credentials']
       return m['algo'], m['api_key_id'], m['short_date'], m['credentials'], m['signed_headers'].split(';'), m['signature'], 0
     end
 
