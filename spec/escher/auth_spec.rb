@@ -127,12 +127,13 @@ module Escher
     end
 
 
-    it 'should sign request' do
+    it 'should sign perfect request' do
       escher = described_class.new('us-east-1/iam/aws4_request', ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('20110909T233600Z')))
       client = {:api_key_id => 'AKIDEXAMPLE', :api_secret => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'}
 
       input_headers = [
         ['host', 'iam.amazonaws.com'],
+        ['x-ems-date', '20110909T233600Z'],
         ['content-type', 'application/x-www-form-urlencoded; charset=utf-8'],
       ]
 
@@ -140,15 +141,73 @@ module Escher
         'content-type' => 'application/x-www-form-urlencoded; charset=utf-8',
         'host' => 'iam.amazonaws.com',
         'x-ems-date' => '20110909T233600Z',
-        'x-ems-auth' => 'EMS-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/iam/aws4_request, SignedHeaders=content-type;host;x-ems-date, Signature=f36c21c6e16a71a6e8dc56673ad6354aeef49c577a22fd58a190b5fcf8891dbd',
+        'x-ems-auth' => 'EMS-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/iam/aws4_request, SignedHeaders=host;x-ems-date, Signature=26855e3e6d3585277965865934f04dcc4c836648873fd2c33f5bbf4f83ebf2a4',
       }
-      headers_to_sign = %w(content-type)
 
       request = {
         method: 'POST',
         uri: '/',
         body: 'Action=ListUsers&Version=2010-05-08',
         headers: input_headers,
+      }
+
+      downcase = escher.sign!(request, client)[:headers].map { |k, v| {k.downcase => v} }.reduce({}, &:merge)
+      expect(downcase).to eq expected_headers
+    end
+
+
+    it 'should sign request and add date header' do
+      escher = described_class.new('us-east-1/iam/aws4_request', ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('20110909T233600Z')))
+      client = {:api_key_id => 'AKIDEXAMPLE', :api_secret => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'}
+
+      input_headers = [
+          ['host', 'iam.amazonaws.com'],
+          ['content-type', 'application/x-www-form-urlencoded; charset=utf-8'],
+      ]
+
+      expected_headers = {
+          'content-type' => 'application/x-www-form-urlencoded; charset=utf-8',
+          'host' => 'iam.amazonaws.com',
+          'x-ems-date' => '20110909T233600Z',
+          'x-ems-auth' => 'EMS-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/iam/aws4_request, SignedHeaders=host;x-ems-date, Signature=26855e3e6d3585277965865934f04dcc4c836648873fd2c33f5bbf4f83ebf2a4',
+      }
+
+      request = {
+          method: 'POST',
+          uri: '/',
+          body: 'Action=ListUsers&Version=2010-05-08',
+          headers: input_headers,
+      }
+
+      downcase = escher.sign!(request, client)[:headers].map { |k, v| {k.downcase => v} }.reduce({}, &:merge)
+      expect(downcase).to eq expected_headers
+    end
+
+
+    it 'should sign request with headers_to_sign parameter' do
+      escher = described_class.new('us-east-1/iam/aws4_request', ESCHER_EMARSYS_OPTIONS.merge(current_time: Time.parse('20110909T233600Z')))
+      client = {:api_key_id => 'AKIDEXAMPLE', :api_secret => 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'}
+
+      input_headers = [
+          ['host', 'iam.amazonaws.com'],
+          ['x-ems-date', '20110909T233600Z'],
+          ['content-type', 'application/x-www-form-urlencoded; charset=utf-8'],
+      ]
+
+      expected_headers = {
+          'content-type' => 'application/x-www-form-urlencoded; charset=utf-8',
+          'host' => 'iam.amazonaws.com',
+          'x-ems-date' => '20110909T233600Z',
+          'x-ems-auth' => 'EMS-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/iam/aws4_request, SignedHeaders=content-type;host;x-ems-date, Signature=f36c21c6e16a71a6e8dc56673ad6354aeef49c577a22fd58a190b5fcf8891dbd',
+      }
+
+      headers_to_sign = %w(content-type)
+
+      request = {
+          method: 'POST',
+          uri: '/',
+          body: 'Action=ListUsers&Version=2010-05-08',
+          headers: input_headers,
       }
 
       downcase = escher.sign!(request, client, headers_to_sign)[:headers].map { |k, v| {k.downcase => v} }.reduce({}, &:merge)
