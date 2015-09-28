@@ -411,6 +411,16 @@ module Escher
     end
 
 
+    it 'should not throw parse error if credential scope contains whitespaces' do
+      headers = [
+          %w(Host host.foo.com),
+          ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
+          ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-ea st-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
+      ]
+      expect { call_validate(headers) }.to raise_error(EscherError, 'The credential scope is invalid')
+    end
+
+
     it 'should detect if signatures do not match' do
       headers = [
         %w(Host host.foo.com),
