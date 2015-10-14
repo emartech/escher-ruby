@@ -109,7 +109,7 @@ module Escher
     def generate_signed_url(url_to_sign, client, expires = 86400)
       uri = Addressable::URI.parse(url_to_sign)
 
-      if (uri.port.present?) && (uri.port != uri.default_port)
+      if (not uri.port.nil?) && (uri.port != uri.default_port)
         host = "#{uri.host}:#{uri.port}"
       else
         host = uri.host
