@@ -9,7 +9,7 @@ module Escher
       @current_time = options[:current_time] || Time.now
       @auth_header_name = options[:auth_header_name] || 'X-Escher-Auth'
       @date_header_name = options[:date_header_name] || 'X-Escher-Date'
-      @clock_skew = options[:clock_skew] || 900
+      @clock_skew = options[:clock_skew] || 300
       @algo = create_algo
       @algo_id = @algo_prefix + '-HMAC-' + @hash_algo
     end
