@@ -10,7 +10,6 @@ module Escher
 
       def initialize(request)
         super request
-        @uri = parse_uri request[:uri]
       end
 
 
@@ -41,27 +40,16 @@ module Escher
 
 
       def path
-        @uri.path
+        request[:uri].match(URI_REGEXP)[1]
       end
 
 
 
       def query_values
-        @uri.query_values(Array) or []
-      end
-
-
-
-      private
-
-      def parse_uri(uri)
-        uri.match URI_REGEXP do |match_data|
-          Addressable::URI.new({:path => match_data[1],
-                                :query => match_data[3]})
-        end
+        query = request[:uri].match(URI_REGEXP)[3]
+        (Addressable::URI.new query: query).query_values(Array) or []
       end
 
     end
-
   end
 end

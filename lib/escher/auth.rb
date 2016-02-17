@@ -43,7 +43,7 @@ module Escher
 
 
 
-    def authenticate(req, key_db)
+    def authenticate(req, key_db, mandatory_signed_headers = nil)
       request = wrap_request req
       method = request.method
       body = request.body
@@ -54,7 +54,7 @@ module Escher
       signature_from_query = get_signing_param('Signature', query_parts)
 
       (['Host'] + (signature_from_query ? [] : [@auth_header_name, @date_header_name])).each do |header|
-        raise EscherError, 'The ' + header + ' header is missing' unless request.header header
+        raise EscherError, 'The ' + header.downcase + ' header is missing' unless request.header header
       end
 
       if method == 'GET' && signature_from_query
@@ -76,11 +76,20 @@ module Escher
       api_secret = key_db[api_key_id]
 
       raise EscherError, 'Invalid Escher key' unless api_secret
-      raise EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed' unless %w(SHA256 SHA512).include?(algorithm)
-      raise EscherError, 'The ' + @auth_header_name + ' header\'s shortDate does not match with the request date' unless short_date(date) == short_date
+      raise EscherError, 'Invalid hash algorithm, only SHA256 and SHA512 are allowed' unless %w(SHA256 SHA512).include?(algorithm)
+      raise EscherError, 'The request method is invalid' unless valid_request_method?(method)
+      raise EscherError, "The request body shouldn't be empty if the request method is POST" if (method.upcase == 'POST' && body.empty?)
+      raise EscherError, "The request url shouldn't contains http or https" if path.match /^https?:\/\//
+      raise EscherError, 'Invalid date in authorization header, it should equal with date header' unless short_date(date) == short_date
       raise EscherError, 'The request date is not within the accepted time range' unless is_date_within_range?(date, expires)
-      raise EscherError, 'The credential scope is invalid' unless credential_scope == @credential_scope
+      raise EscherError, 'Invalid Credential Scope' unless credential_scope == @credential_scope
+      raise EscherError, 'The mandatorySignedHeaders parameter must be undefined or array of strings' unless mandatory_signed_headers_valid?(mandatory_signed_headers)
       raise EscherError, 'The host header is not signed' unless signed_headers.include? 'host'
+      unless mandatory_signed_headers.nil?
+        mandatory_signed_headers.each do |header|
+          raise EscherError, "The #{header} header is not signed" unless signed_headers.include? header
+        end
+      end
       raise EscherError, 'Only the host header should be signed' if signature_from_query && signed_headers != ['host']
       raise EscherError, 'The date header is not signed' if !signature_from_query && !signed_headers.include?(@date_header_name.downcase)
 
@@ -163,7 +172,7 @@ module Escher
     def get_auth_parts_from_header(auth_header)
       m = /#{@algo_prefix}-HMAC-(?<algo>[A-Z0-9\,]+) Credential=(?<api_key_id>[A-Za-z0-9\-_]+)\/(?<short_date>[0-9]{8})\/(?<credentials>[A-Za-z0-9\-_ \/]+), SignedHeaders=(?<signed_headers>[A-Za-z\-;]+), Signature=(?<signature>[0-9a-f]+)$/
       .match auth_header
-      raise EscherError, 'Could not parse auth header' unless m && m['credentials']
+      raise EscherError, 'Invalid auth header format' unless m && m['credentials']
       return m['algo'], m['api_key_id'], m['short_date'], m['credentials'], m['signed_headers'].split(';'), m['signature'], 0
     end
 
@@ -268,6 +277,25 @@ module Escher
 
     def is_date_within_range?(request_date, expires)
       (request_date - @clock_skew .. request_date + expires + @clock_skew).cover? @current_time
+    end
+
+
+
+    def valid_request_method?(method)
+      %w(OPTIONS GET HEAD POST PUT DELETE TRACE PATCH CONNECT).include? method.upcase
+    end
+
+
+
+    def mandatory_signed_headers_valid?(mandatory_signed_headers)
+      if mandatory_signed_headers.nil?
+        return true
+      else
+        return false unless mandatory_signed_headers.is_a? Array
+        return false unless mandatory_signed_headers.all? { |header| header.is_a? String }
+      end
+
+      true
     end
 
 

@@ -3,3 +3,4 @@ rvm:
   - 1.9.3
   - 2.1.2
   - 2.2.1
+before_script: ./scripts/checkout_test_suite.sh

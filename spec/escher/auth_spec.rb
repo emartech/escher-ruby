@@ -417,7 +417,7 @@ module Escher
           ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
           ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-ea st-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
       ]
-      expect { call_validate(headers) }.to raise_error(EscherError, 'The credential scope is invalid')
+      expect { call_validate(headers) }.to raise_error(EscherError, 'Invalid Credential Scope')
     end
 
 
@@ -428,17 +428,6 @@ module Escher
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'],
       ]
       expect { call_validate(headers) }.to raise_error(EscherError, 'The signatures do not match')
-    end
-
-
-    it 'should detect if dates are not on the same day' do
-      yesterday = '08'
-      headers = [
-        %w(Host host.foo.com),
-        ['Date', "Mon, #{yesterday} Sep 2011 23:36:00 GMT"],
-        ['Authorization', GOOD_AUTH_HEADER],
-      ]
-      expect { call_validate(headers) }.to raise_error(EscherError, 'The Authorization header\'s shortDate does not match with the request date')
     end
 
 
@@ -453,40 +442,13 @@ module Escher
     end
 
 
-    it 'should detect missing host header' do
-      headers = [
-        ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
-        ['Authorization', GOOD_AUTH_HEADER],
-      ]
-      expect { call_validate(headers) }.to raise_error(EscherError, 'The Host header is missing')
-    end
-
-
-    it 'should detect missing date header' do
-      headers = [
-        %w(Host host.foo.com),
-        ['Authorization', GOOD_AUTH_HEADER],
-      ]
-      expect { call_validate(headers) }.to raise_error(EscherError, 'The Date header is missing')
-    end
-
-
-    it 'should detect missing auth header' do
-      headers = [
-        %w(Host host.foo.com),
-        ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
-      ]
-      expect { call_validate(headers) }.to raise_error(EscherError, 'The Authorization header is missing')
-    end
-
-
     it 'should detect malformed auth header' do
       headers = [
         %w(Host host.foo.com),
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=UNPARSABLE'],
       ]
-      expect { call_validate(headers) }.to raise_error(EscherError, 'Could not parse auth header')
+      expect { call_validate(headers) }.to raise_error(EscherError, 'Invalid auth header format')
     end
 
 
@@ -496,7 +458,7 @@ module Escher
         ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=BAD-CREDENTIAL-SCOPE, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
       ]
-      expect { call_validate(headers) }.to raise_error(EscherError, 'Could not parse auth header')
+      expect { call_validate(headers) }.to raise_error(EscherError, 'Invalid auth header format')
     end
 
 
@@ -517,26 +479,6 @@ module Escher
         ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
       ]
       expect { call_validate(headers) }.to raise_error(EscherError, 'The date header is not signed')
-    end
-
-
-    it 'should check algorithm' do
-      headers = [
-        %w(Host host.foo.com),
-        ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
-        ['Authorization', 'AWS4-HMAC-INVALID Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
-      ]
-      expect { call_validate(headers) }.to raise_error(EscherError, 'Only SHA256 and SHA512 hash algorithms are allowed')
-    end
-
-
-    it 'should check credential scope' do
-      headers = [
-        %w(Host host.foo.com),
-        ['Date', 'Mon, 09 Sep 2011 23:36:00 GMT'],
-        ['Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/INVALID/aws4_request, SignedHeaders=date;host, Signature=b27ccfbfa7df52a200ff74193ca6e32d4b48b8856fab7ebf1c595d0670a7e470'],
-      ]
-      expect { call_validate(headers) }.to raise_error(EscherError, 'The credential scope is invalid')
     end
 
 
