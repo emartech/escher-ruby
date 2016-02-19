@@ -41,10 +41,7 @@ module Escher
         request[:url] = request.delete :uri
         request.each { |_, v| v.sort! if v.class.method_defined? :sort! }
 
-        expected_request = test_case[:expected][:request]
-        expected_request.each { |_, v| v.sort! if v.class.method_defined? :sort! }
-
-        expect(request).to eq(expected_request)
+        expect(request).to eq(test_case.expected_request)
       end
     end
 
