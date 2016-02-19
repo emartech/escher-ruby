@@ -22,7 +22,7 @@ module Escher
       request = wrap_request req
       raise EscherError, 'The host header is missing' unless request.has_header? 'host'
 
-      request.set_header(@date_header_name, format_date_for_header) unless request.has_header? @date_header_name
+      request.set_header(@date_header_name.downcase, format_date_for_header) unless request.has_header? @date_header_name
 
       signature = generate_signature(client[:api_secret], request.body, request.headers, request.method, headers_to_sign, request.path, request.query_values)
       request.set_header(@auth_header_name, "#{@algo_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{prepare_headers_to_sign headers_to_sign}, Signature=#{signature}")
@@ -336,7 +336,7 @@ module Escher
 
     def normalize_white_spaces(value)
       value.strip.split('"', -1).map.with_index { |piece, index|
-        is_inside_of_quotes = (index % 2 === 1)
+        is_inside_of_quotes = (index % 2 == 1)
         is_inside_of_quotes ? piece : piece.gsub(/\s+/, ' ')
       }.join '"'
     end
