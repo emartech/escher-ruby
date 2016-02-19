@@ -33,6 +33,19 @@ module Escher
       end
     end
 
+
+    Dir.glob('./spec/emarsys_test_suite/presignurl-*').each do |c|
+      test_case = ::JSON.parse(File.read(c), symbolize_names: true).to_snake_keys
+      test_case[:config][:api_key_id] = test_case[:config].delete :access_key_id
+      test_case[:config][:current_time] = Time.parse(test_case[:config].delete :date)
+      escher = Auth.new(test_case[:config][:credential_scope], test_case[:config])
+
+      it "#{test_case[:title]}" do
+        expect(escher.generate_signed_url(test_case[:request][:url], test_case[:config], test_case[:request][:expires]))
+          .to eq(test_case[:expected][:url])
+      end
+    end
+
   end
 
 end
