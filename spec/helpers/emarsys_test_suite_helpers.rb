@@ -32,6 +32,14 @@ module EmarsysTestSuiteHelpers
 
     def initialize(test_file)
       @test_data = ::JSON.parse(File.read(test_file), symbolize_names: true).to_snake_keys
+      convert_naming
+    end
+
+
+
+    def convert_naming
+      @test_data[:request][:uri] = @test_data[:request].delete :url
+      @test_data[:config][:api_key_id] = @test_data[:config].delete :access_key_id
     end
 
 

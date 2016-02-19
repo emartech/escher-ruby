@@ -6,8 +6,6 @@ module Escher
 
     authentication_error_test_files.each do |test_file|
       test_case = EmarsysTestSuiteHelpers::TestCase.new test_file
-      test_case[:request][:uri] = test_case[:request].delete :url
-
 
       it "#{test_case[:title]}" do
         expect { test_case.escher.authenticate(test_case[:request], test_case.key, test_case[:mandatory_signed_headers]) }
@@ -18,7 +16,6 @@ module Escher
 
     authentication_valid_test_files.each do |test_file|
       test_case = EmarsysTestSuiteHelpers::TestCase.new test_file
-      test_case[:request][:uri] = test_case[:request].delete :url
 
       it "#{test_case[:title]}" do
         expect { test_case.escher.authenticate(test_case[:request], test_case.key) }.not_to raise_error
@@ -28,10 +25,9 @@ module Escher
 
     presign_url_test_files.each do |test_file|
       test_case = EmarsysTestSuiteHelpers::TestCase.new test_file
-      test_case[:config][:api_key_id] = test_case[:config].delete :access_key_id
 
       it "#{test_case[:title]}" do
-        expect(test_case.escher.generate_signed_url(test_case[:request][:url], test_case[:config], test_case[:request][:expires]))
+        expect(test_case.escher.generate_signed_url(test_case[:request][:uri], test_case[:config], test_case[:request][:expires]))
           .to eq(test_case[:expected][:url])
       end
     end
@@ -39,8 +35,6 @@ module Escher
 
     sign_request_valid_test_files.each do |test_file|
       test_case = EmarsysTestSuiteHelpers::TestCase.new test_file
-      test_case[:request][:uri] = test_case[:request].delete :url
-      test_case[:config][:api_key_id] = test_case[:config].delete :access_key_id
 
       it "#{test_case[:title]}" do
         request = test_case.escher.sign! test_case[:request], test_case[:config], test_case[:headers_to_sign]
