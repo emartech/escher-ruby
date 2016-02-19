@@ -28,12 +28,6 @@ module EmarsysTestSuiteHelpers
 
 
 
-  def parse_test_from(test_file)
-    ::JSON.parse(File.read(test_file), symbolize_names: true).to_snake_keys
-  end
-
-
-
   def create_escher_for(test_case)
     test_case[:config][:current_time] = Time.parse(test_case[:config].delete :date)
     ::Escher::Auth.new(test_case[:config][:credential_scope], test_case[:config])
@@ -43,6 +37,22 @@ module EmarsysTestSuiteHelpers
 
   def extract_key(test_case)
     {test_case[:key_db].first[0] => test_case[:key_db].first[1]}
+  end
+
+
+
+  class TestCase
+
+    def initialize(test_file)
+      @test_data = ::JSON.parse(File.read(test_file), symbolize_names: true).to_snake_keys
+    end
+
+
+
+    def [](arg)
+      @test_data[arg]
+    end
+
   end
 
 end

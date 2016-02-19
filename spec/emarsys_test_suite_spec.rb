@@ -5,7 +5,7 @@ module Escher
   describe Auth, :emarsys_test_suite do
 
     authentication_error_test_files.each do |test_file|
-      test_case = parse_test_from test_file
+      test_case = EmarsysTestSuiteHelpers::TestCase.new test_file
       test_case[:request][:uri] = test_case[:request].delete :url
 
       escher = create_escher_for test_case
@@ -19,7 +19,7 @@ module Escher
 
 
     authentication_valid_test_files.each do |test_file|
-      test_case = parse_test_from test_file
+      test_case = EmarsysTestSuiteHelpers::TestCase.new test_file
       test_case[:request][:uri] = test_case[:request].delete :url
 
       escher = create_escher_for test_case
@@ -32,7 +32,7 @@ module Escher
 
 
     presign_url_test_files.each do |test_file|
-      test_case = parse_test_from test_file
+      test_case = EmarsysTestSuiteHelpers::TestCase.new test_file
       test_case[:config][:api_key_id] = test_case[:config].delete :access_key_id
 
       escher = create_escher_for test_case
@@ -45,7 +45,7 @@ module Escher
 
 
     sign_request_valid_test_files.each do |test_file|
-      test_case = parse_test_from test_file
+      test_case = EmarsysTestSuiteHelpers::TestCase.new test_file
       test_case[:request][:uri] = test_case[:request].delete :url
       test_case[:config][:api_key_id] = test_case[:config].delete :access_key_id
 
