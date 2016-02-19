@@ -28,13 +28,6 @@ module EmarsysTestSuiteHelpers
 
 
 
-  def create_escher_for(test_case)
-    test_case[:config][:current_time] = Time.parse(test_case[:config].delete :date)
-    ::Escher::Auth.new(test_case[:config][:credential_scope], test_case[:config])
-  end
-
-
-
   class TestCase
 
     def initialize(test_file)
@@ -51,6 +44,13 @@ module EmarsysTestSuiteHelpers
 
     def key
       {@test_data[:key_db].first[0] => @test_data[:key_db].first[1]}
+    end
+
+
+
+    def escher
+      @test_data[:config][:current_time] = Time.parse(@test_data[:config].delete :date)
+      @escher ||= ::Escher::Auth.new(@test_data[:config][:credential_scope], @test_data[:config])
     end
 
   end
