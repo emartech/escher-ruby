@@ -3,27 +3,33 @@ require 'plissken'
 require 'escher'
 
 module EmarsysTestSuiteHelpers
+  def create_test_case
+    ->(t) { EmarsysTestSuiteHelpers::TestCase.new t }
+  end
+
+
 
   def authentication_error_test_files
-    Dir.glob('./spec/emarsys_test_suite/authenticate-error-*')
+    Dir.glob('./spec/emarsys_test_suite/authenticate-error-*').map &create_test_case
   end
 
 
 
   def authentication_valid_test_files
-    Dir.glob('./spec/emarsys_test_suite/authenticate-valid-*')
+    Dir.glob('./spec/emarsys_test_suite/authenticate-valid-*').map &create_test_case
   end
 
 
 
   def presign_url_test_files
-    Dir.glob('./spec/emarsys_test_suite/presignurl-*')
+    Dir.glob('./spec/emarsys_test_suite/presignurl-*').map &create_test_case
   end
 
 
 
   def sign_request_valid_test_files
-    Dir.glob('./spec/emarsys_test_suite/signrequest-*').reject { |c| c.include? 'error' }
+    files = Dir.glob('./spec/emarsys_test_suite/signrequest-*').reject { |c| c.include? 'error' }
+    files.map &create_test_case
   end
 
 
