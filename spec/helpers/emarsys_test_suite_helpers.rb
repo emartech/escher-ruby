@@ -35,12 +35,6 @@ module EmarsysTestSuiteHelpers
 
 
 
-  def extract_key(test_case)
-    {test_case[:key_db].first[0] => test_case[:key_db].first[1]}
-  end
-
-
-
   class TestCase
 
     def initialize(test_file)
@@ -51,6 +45,12 @@ module EmarsysTestSuiteHelpers
 
     def [](arg)
       @test_data[arg]
+    end
+
+
+
+    def key
+      {@test_data[:key_db].first[0] => @test_data[:key_db].first[1]}
     end
 
   end

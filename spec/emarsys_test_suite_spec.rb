@@ -9,10 +9,9 @@ module Escher
       test_case[:request][:uri] = test_case[:request].delete :url
 
       escher = create_escher_for test_case
-      key = extract_key(test_case)
 
       it "#{test_case[:title]}" do
-        expect { escher.authenticate(test_case[:request], key, test_case[:mandatory_signed_headers]) }
+        expect { escher.authenticate(test_case[:request], test_case.key, test_case[:mandatory_signed_headers]) }
           .to raise_error(EscherError, test_case[:expected][:error])
       end
     end
@@ -23,10 +22,9 @@ module Escher
       test_case[:request][:uri] = test_case[:request].delete :url
 
       escher = create_escher_for test_case
-      key = extract_key(test_case)
 
       it "#{test_case[:title]}" do
-        expect { escher.authenticate(test_case[:request], key) }.not_to raise_error
+        expect { escher.authenticate(test_case[:request], test_case.key) }.not_to raise_error
       end
     end
 
