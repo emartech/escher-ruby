@@ -5,6 +5,7 @@ require 'escher'
 module EmarsysTestSuiteHelpers
 
   autoload :TestCase, 'helpers/emarsys_test_suite/test_case'
+  autoload :TestSuite, 'helpers/emarsys_test_suite/test_suite'
 
 
 
