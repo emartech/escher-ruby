@@ -224,7 +224,7 @@ module Escher
 
 
     def prepare_headers_to_sign(headers_to_sign)
-      headers_to_sign.sort.uniq.join(';').downcase
+      headers_to_sign.map(&:downcase).sort.uniq.join(';')
     end
 
 
