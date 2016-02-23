@@ -326,6 +326,7 @@ module Escher
           end
         end
       end
+      headers_to_sign.map!(&:downcase)
       headers
       .sort
       .select { |h| headers_to_sign.include?(h[0]) }
