@@ -15,16 +15,12 @@ class Escher::Request::RackRequest < Escher::Request::Base
     @rack_request
   end
 
-  def uri
-    @rack_request.env['REQUEST_URI']
-  end
-
   def path
-    @rack_request.env['REQUEST_PATH']
+    @rack_request.env[::Rack::PATH_INFO]
   end
 
   def host
-    @rack_request.env['HTTP_HOST']
+    @rack_request.env[::Rack::HTTP_HOST]
   end
 
   def headers

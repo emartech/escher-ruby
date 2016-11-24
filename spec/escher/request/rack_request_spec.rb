@@ -5,7 +5,7 @@ require 'rack/request'
 
 describe Escher::Request::RackRequest do
 
-  let(:request_params) { {"PATH_INFO" => "/", } }
+  let(:request_params) { {Rack::PATH_INFO => "/", } }
   let(:request) { Rack::Request.new request_params }
 
   subject { described_class.new request }
@@ -88,7 +88,7 @@ describe Escher::Request::RackRequest do
 
   describe "#path" do
     it "should return the request path" do
-      request_params.merge! 'REQUEST_PATH' => '/resources/id///'
+      request_params[Rack::PATH_INFO]= '/resources/id///'
 
       expect(subject.path).to eq '/resources/id///'
     end
