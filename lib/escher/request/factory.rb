@@ -6,7 +6,7 @@ module Escher
         case request
 
           when defined?(ActionDispatch::Request) && ActionDispatch::Request
-            ActionDispatchRequest.new(request)
+            RackRequest.new(Rack::Request.new(request.env))
 
           when defined?(Rack::Request) && Rack::Request
             RackRequest.new(request)
