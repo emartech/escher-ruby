@@ -78,7 +78,6 @@ module Escher
       raise EscherError, 'Invalid Escher key' unless api_secret
       raise EscherError, 'Invalid hash algorithm, only SHA256 and SHA512 are allowed' unless %w(SHA256 SHA512).include?(algorithm)
       raise EscherError, 'The request method is invalid' unless valid_request_method?(method)
-      raise EscherError, "The request body shouldn't be empty if the request method is POST" if (method.upcase == 'POST' && body.empty?)
       raise EscherError, "The request url shouldn't contains http or https" if path.match /^https?:\/\//
       raise EscherError, 'Invalid date in authorization header, it should equal with date header' unless short_date(date) == short_date
       raise EscherError, 'The request date is not within the accepted time range' unless is_date_within_range?(date, expires)
