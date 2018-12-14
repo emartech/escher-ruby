@@ -6,7 +6,7 @@ module Escher
       @algo_prefix = options[:algo_prefix] || 'ESR'
       @vendor_key = options[:vendor_key] || 'Escher'
       @hash_algo = options[:hash_algo] || 'SHA256'
-      @current_time = options[:current_time] || Time.now
+      @current_time = options[:current_time]
       @auth_header_name = options[:auth_header_name] || 'X-Escher-Auth'
       @date_header_name = options[:date_header_name] || 'X-Escher-Date'
       @clock_skew = options[:clock_skew] || 300
@@ -80,7 +80,7 @@ module Escher
       raise EscherError, 'The request method is invalid' unless valid_request_method?(method)
       raise EscherError, "The request url shouldn't contains http or https" if path.match /^https?:\/\//
       raise EscherError, 'Invalid date in authorization header, it should equal with date header' unless short_date(date) == short_date
-      raise EscherError, 'The request date is not within the accepted time range' unless is_date_within_range?(date, expires)
+      raise EscherError, 'The request date is not within the accepted time range' unless is_date_within_range?(date, expires, @current_time || Time.now)
       raise EscherError, 'Invalid Credential Scope' unless credential_scope == @credential_scope
       raise EscherError, 'The mandatorySignedHeaders parameter must be undefined or array of strings' unless mandatory_signed_headers_valid?(mandatory_signed_headers)
       raise EscherError, 'The host header is not signed' unless signed_headers.include? 'host'
@@ -274,8 +274,8 @@ module Escher
 
 
 
-    def is_date_within_range?(request_date, expires)
-      (request_date - @clock_skew .. request_date + expires + @clock_skew).cover? @current_time
+    def is_date_within_range?(request_date, expires, current_time)
+      (request_date - @clock_skew .. request_date + expires + @clock_skew).cover? current_time
     end
 
 
