@@ -10,7 +10,8 @@ module Escher
 
           when defined?(Rack::Request) && Rack::Request
             RackRequest.new(request)
-
+          when Net::HTTPRequest
+            NetHttpRequest.new(request)
           when Hash
             HashRequest.new(request)
 
