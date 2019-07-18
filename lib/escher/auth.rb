@@ -254,7 +254,7 @@ module Escher
         when 'SHA256'
           @algo = OpenSSL::Digest::SHA256.new
         when 'SHA512'
-          @algo = OpenSSL::Digest::SHA521.new
+          @algo = OpenSSL::Digest::SHA512.new
         else
           raise EscherError, 'Unidentified hash algorithm'
       end
