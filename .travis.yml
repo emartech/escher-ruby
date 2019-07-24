@@ -3,3 +3,11 @@ rvm:
   - 2.2.3
   - 2.3.0
 before_script: ./scripts/checkout_test_suite.sh
+deploy:
+  provider: rubygems
+  api_key: ${RUBYGEMS_API_KEY}
+  gem: escher
+  gemspec: escher.gemspec
+  skip_cleanup: true
+  on:
+    tags: true
