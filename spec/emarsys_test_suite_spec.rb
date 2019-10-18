@@ -35,11 +35,5 @@ module Escher
         expect(request).to eq(test_case.expected_request)
       end
     end
-
-
-    xspecify "every case in the test suite is being used" do
-      expect(::EmarsysTestSuiteHelpers::TestSuite.in_use_size).to eq ::EmarsysTestSuiteHelpers::TestSuite.size
-    end
-
   end
 end

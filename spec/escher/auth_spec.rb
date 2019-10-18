@@ -101,7 +101,7 @@ module Escher
           headers_to_sign = headers.map { |k| k[0].downcase }
           path, query_parts = escher.parse_uri(request_uri)
           canonicalized_request = escher.canonicalize(method, path, query_parts, body, headers, headers_to_sign)
-          string_to_sign = escher.get_string_to_sign(canonicalized_request)
+          string_to_sign = escher.get_string_to_sign(canonicalized_request, Time.parse(date))
           expect(string_to_sign).to eq(fixture(suite, test, 'sts'))
         end
       end
@@ -484,7 +484,7 @@ module Escher
 
     it 'should convert dates' do
       date_str = 'Fri, 09 Sep 2011 23:36:00 GMT'
-      expect(described_class.new('irrelevant', date_header_name: 'date', current_time: Time.parse(date_str)).format_date_for_header).to eq date_str
+      expect(described_class.new('irrelevant', date_header_name: 'date', current_time: Time.parse(date_str)).format_date_for_header(Time.parse(date_str))).to eq date_str
     end
 
 

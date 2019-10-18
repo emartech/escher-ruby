@@ -17,15 +17,17 @@ module Escher
 
 
     def sign!(req, client, headers_to_sign = [])
+      current_time = @current_time || Time.now
+
       headers_to_sign |= [@date_header_name.downcase, 'host']
 
       request = wrap_request req
       raise EscherError, 'The host header is missing' unless request.has_header? 'host'
 
-      request.set_header(@date_header_name.downcase, format_date_for_header) unless request.has_header? @date_header_name
+      request.set_header(@date_header_name.downcase, format_date_for_header(current_time)) unless request.has_header? @date_header_name
 
-      signature = generate_signature(client[:api_secret], request.body, request.headers, request.method, headers_to_sign, request.path, request.query_values)
-      request.set_header(@auth_header_name, "#{@algo_id} Credential=#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}, SignedHeaders=#{prepare_headers_to_sign headers_to_sign}, Signature=#{signature}")
+      signature = generate_signature(client[:api_secret], request.body, request.headers, request.method, headers_to_sign, request.path, request.query_values, current_time)
+      request.set_header(@auth_header_name, "#{@algo_id} Credential=#{client[:api_key_id]}/#{short_date(current_time)}/#{@credential_scope}, SignedHeaders=#{prepare_headers_to_sign headers_to_sign}, Signature=#{signature}")
 
       request.request
     end
@@ -44,6 +46,7 @@ module Escher
 
 
     def authenticate(req, key_db, mandatory_signed_headers = nil)
+      current_time = @current_time || Time.now
       request = wrap_request req
       method = request.method
       body = request.body
@@ -80,7 +83,7 @@ module Escher
       raise EscherError, 'The request method is invalid' unless valid_request_method?(method)
       raise EscherError, "The request url shouldn't contains http or https" if path.match /^https?:\/\//
       raise EscherError, 'Invalid date in authorization header, it should equal with date header' unless short_date(date) == short_date
-      raise EscherError, 'The request date is not within the accepted time range' unless is_date_within_range?(date, expires, @current_time || Time.now)
+      raise EscherError, 'The request date is not within the accepted time range' unless is_date_within_range?(date, expires, current_time)
       raise EscherError, 'Invalid Credential Scope' unless credential_scope == @credential_scope
       raise EscherError, 'The mandatorySignedHeaders parameter must be undefined or array of strings' unless mandatory_signed_headers_valid?(mandatory_signed_headers)
       raise EscherError, 'The host header is not signed' unless signed_headers.include? 'host'
@@ -93,7 +96,7 @@ module Escher
       raise EscherError, 'The date header is not signed' if !signature_from_query && !signed_headers.include?(@date_header_name.downcase)
 
       escher = reconfig(algorithm, credential_scope, date)
-      expected_signature = escher.generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
+      expected_signature = escher.generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts, date)
       raise EscherError, 'The signatures do not match' unless signature == expected_signature
       api_key_id
     end
@@ -115,6 +118,7 @@ module Escher
 
 
     def generate_signed_url(url_to_sign, client, expires = 86400)
+      current_time = @current_time || Time.now
       uri = Addressable::URI.parse(url_to_sign)
 
       if (not uri.port.nil?) && (uri.port != uri.default_port)
@@ -136,13 +140,13 @@ module Escher
       body = 'UNSIGNED-PAYLOAD'
       query_parts += [
         ['Algorithm', @algo_id],
-        ['Credentials', "#{client[:api_key_id]}/#{short_date(@current_time)}/#{@credential_scope}"],
-        ['Date', long_date(@current_time)],
+        ['Credentials', "#{client[:api_key_id]}/#{short_date(current_time)}/#{@credential_scope}"],
+        ['Date', long_date(current_time)],
         ['Expires', expires.to_s],
         ['SignedHeaders', headers_to_sign.join(';')],
       ].map { |k, v| query_pair(k, v) }
 
-      signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts)
+      signature = generate_signature(client[:api_secret], body, headers, 'GET', headers_to_sign, path, query_parts, current_time)
       query_parts_with_signature = (query_parts.map { |k, v| [uri_encode(k), uri_encode(v)] } << query_pair('Signature', signature))
       "#{uri.scheme}://#{host}#{path}?#{query_parts_with_signature.map { |k, v| k + '=' + v }.join('&')}#{(fragment === nil ? '' : '#' + fragment)}"
     end
@@ -188,11 +192,11 @@ module Escher
 
 
 
-    def generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts)
+    def generate_signature(api_secret, body, headers, method, signed_headers, path, query_parts, current_time)
       canonicalized_request = canonicalize(method, path, query_parts, body, headers, signed_headers.uniq)
-      string_to_sign = get_string_to_sign(canonicalized_request)
+      string_to_sign = get_string_to_sign(canonicalized_request, current_time)
 
-      signing_key = OpenSSL::HMAC.digest(@algo, @algo_prefix + api_secret, short_date(@current_time))
+      signing_key = OpenSSL::HMAC.digest(@algo, @algo_prefix + api_secret, short_date(current_time))
       @credential_scope.split('/').each { |data|
         signing_key = OpenSSL::HMAC.digest(@algo, signing_key, data)
       }
@@ -202,8 +206,8 @@ module Escher
 
 
 
-    def format_date_for_header
-      @date_header_name.downcase == 'date' ? @current_time.utc.rfc2822.sub('-0000', 'GMT') : long_date(@current_time)
+    def format_date_for_header(current_time)
+      @date_header_name.downcase == 'date' ? current_time.utc.rfc2822.sub('-0000', 'GMT') : long_date(current_time)
     end
 
 
@@ -238,11 +242,11 @@ module Escher
 
 
 
-    def get_string_to_sign(canonicalized_request)
+    def get_string_to_sign(canonicalized_request, current_time)
       [
         @algo_id,
-        long_date(@current_time),
-        short_date(@current_time) + '/' + @credential_scope,
+        long_date(current_time),
+        short_date(current_time) + '/' + @credential_scope,
         @algo.new.hexdigest(canonicalized_request)
       ].join("\n")
     end
