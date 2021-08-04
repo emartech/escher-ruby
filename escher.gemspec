@@ -23,11 +23,11 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "bundler", "~> 2.2.20"
   spec.add_development_dependency "rails"
 
-  spec.add_development_dependency "rake", "~> 10"
-  spec.add_development_dependency "rspec", "~> 2"
+  spec.add_development_dependency "rake", "~> 13.0.6"
+  spec.add_development_dependency "rspec", "~> 3"
 
   spec.add_development_dependency "rack"
   spec.add_development_dependency "plissken"
 
-  spec.add_runtime_dependency "addressable", "~> 2.3"
+  spec.add_runtime_dependency "addressable", "~> 2.8.0"
 end
