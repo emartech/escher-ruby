@@ -1,0 +1,33 @@
+name: Ruby
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ruby-versions: [2.6.x, 2.7.x, 3.0.x]
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby-versions }}
+    - name: Checkout testsuite
+      run: ./scripts/checkout_test_suite.sh
+    - name: Install dependencies
+      run: bundle install
+    - name: Run tests
+      run: bundle exec rake
+    - name: Deploy
+      if : github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      run: |
+          mkdir -p $HOME/.gem
+          touch $HOME/.gem/credentials
+          chmod 0600 $HOME/.gem/credentials
+          printf -- "---\n:rubygems_api_key: ${GEM_HOST_API_KEY}\n" > $HOME/.gem/credentials
+          gem build *.gemspec
+          gem push *.gem
+      env:
+        GEM_HOST_API_KEY: "${{secrets.RUBYGEMS_AUTH_TOKEN}}"
