@@ -38,6 +38,8 @@ module Escher
       begin
         authenticate(*args)
         return true
+      rescue EscherError
+        return false
       rescue
         return false
       end
