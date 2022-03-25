@@ -8,3 +8,11 @@ The algorithm is based on [Amazon's _AWS Signature Version 4_](http://docs.aws.a
 More details will be available at our [documentation site](http://escherauth.io/).
 
 Check out a [working example] (https://github.com/emartech/escher-ruby-example).
+
+### Local development
+
+#### Running tests
+
+```bash
+make test
+```

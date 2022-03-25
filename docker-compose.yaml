@@ -1,0 +1,7 @@
+version: '3'
+services:
+  app:
+    image: ruby:3.1.1
+    working_dir: /home/app/src
+    volumes:
+      - .:/home/app/src
