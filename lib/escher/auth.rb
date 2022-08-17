@@ -199,7 +199,7 @@ module Escher
       string_to_sign = get_string_to_sign(canonicalized_request, current_time)
 
       signing_key = OpenSSL::HMAC.digest(@algo, @algo_prefix + api_secret, short_date(current_time))
-      @credential_scope.split('/').each { |data|
+      @credential_scope.split('/', -1).each { |data|
         signing_key = OpenSSL::HMAC.digest(@algo, signing_key, data)
       }
 
