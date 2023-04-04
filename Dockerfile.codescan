@@ -1,0 +1,8 @@
+FROM ruby:3.2.2
+
+COPY install.sh /tmp/
+RUN chmod 755 /tmp/install.sh
+
+WORKDIR /workspace/source
+
+ENTRYPOINT ["bundle", "install"]
