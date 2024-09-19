@@ -21,7 +21,7 @@ jobs:
     - name: Run tests
       run: bundle exec rake
     - name: Deploy
-      if : github.event_name == 'push' && startsWith(github.ref, 'refs/tags') && matrix.ruby-versions == '3.0'
+      if : github.event_name == 'push' && startsWith(github.ref, 'refs/tags') && matrix.ruby-versions == '3.2'
       run: |
           mkdir -p $HOME/.gem
           touch $HOME/.gem/credentials
