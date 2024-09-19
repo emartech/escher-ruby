@@ -1,4 +1,4 @@
-EscherRuby - HTTP request signing lib [![Build Status](https://travis-ci.org/emartech/escher-ruby.svg?branch=master)](https://travis-ci.org/emartech/escher-ruby)
+EscherRuby - HTTP request signing lib [![Build Status](https://img.shields.io/github/actions/workflow/status/emartech/escher-ruby/ruby.yml?branch=master)](https://github.com/emartech/escher-ruby/actions/workflows/ruby.yml)
 =====================================
 
 Escher helps you creating secure HTTP requests (for APIs) by signing HTTP(s) requests. It's both a server side and client side implementation. The status is work in progress.
@@ -10,6 +10,12 @@ More details will be available at our [documentation site](http://escherauth.io/
 Check out a [working example] (https://github.com/emartech/escher-ruby-example).
 
 ### Local development
+
+To ensure you have all submodules (including test suites), please clone the repository with the `--recursive` flag:
+
+```bash
+git clone --recursive https://github.com/emartech/escher-ruby.git
+```
 
 #### Running tests
 
