@@ -15,7 +15,7 @@ jobs:
       with:
         ruby-version: ${{ matrix.ruby-versions }}
     - name: Checkout testsuite
-      uses: action/checkout@v4
+      uses: actions/checkout@v4
       with:
         repository: emartech/escher-test-suite
         path: spec/emarsys_test_suite
