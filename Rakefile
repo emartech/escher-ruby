@@ -10,7 +10,3 @@ end
 
 task :default => :spec
 
-desc "Check out centralised test suite into spec/emarsys_test_suite."
-task :checkout_test_suite do
-  `scripts/checkout_test_suite.sh`
-end
