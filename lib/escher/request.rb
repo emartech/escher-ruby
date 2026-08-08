@@ -5,6 +5,7 @@ module Escher::Request
   require 'escher/request/base'
   require 'escher/request/hash_request'
   require 'escher/request/rack_request'
+  require 'escher/request/net_http_request'
   require 'escher/request/legacy_request'
 
   require 'escher/request/factory'
